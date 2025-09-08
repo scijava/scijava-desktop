@@ -31,66 +31,112 @@ package org.scijava.links;
 
 import org.junit.Test;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
+
 import java.util.Map;
 
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
-/**
- * Tests {@link Links}.
- *
- * @author Curtis Rueden
- */
+
 public class LinksTest {
 
-	private static final URI TEST_URI;
+        @Test
+        public void parsesPluginSubAndQuery() {
+            FijiURILink link = FijiURILink.parse("fiji://BDV/open?source=s3&bucket=data");
+            assertEquals("BDV", link.getPlugin());
+            assertEquals("open", link.getSubPlugin());
+            assertEquals("source=s3&bucket=data", link.getQuery());
+            assertEquals("source=s3&bucket=data", link.getRawQuery()); // identical here
+        }
 
-	static {
-		try {
-			TEST_URI = new URI(
-				"scijava://user:pass@example.com:8080/op/sub/resource?" +
-				"fruit=apple&veggie=beans#section"
-			);
-		}
-		catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
-	}
+        @Test
+        public void parsesPluginOnly() {
+            FijiURILink link = FijiURILink.parse("fiji://BDV");
+            assertEquals("BDV", link.getPlugin());
+            assertNull(link.getSubPlugin());
+            assertNull(link.getQuery());
+            assertNull(link.getRawQuery());
+        }
 
-	@Test
-	public void testPath() {
-		var actual = Links.path(TEST_URI);
-		assertEquals("op/sub/resource", actual);
-	}
+        @Test
+        public void parsesPluginAndEmptyPathSlash() {
+            FijiURILink link = FijiURILink.parse("fiji://BDV/?q=hello");
+            assertEquals("BDV", link.getPlugin());
+            assertNull(link.getSubPlugin());             // "/"" becomes no subplugin
+            assertEquals("q=hello", link.getQuery());
+            assertEquals("q=hello", link.getRawQuery());
+        }
 
-	@Test
-	public void testOperation() {
-		var actual = Links.operation(TEST_URI);
-		assertEquals("op", actual);
-	}
+        @Test
+        public void percentEncodedQuery_isPreservedInRawQuery() {
+            String u = "fiji://bdv?file=%2Ftmp%2Fdata.xml&flag";
+            FijiURILink link = FijiURILink.parse(u);
+            assertEquals("bdv", link.getPlugin());
+            assertNull(link.getSubPlugin());
 
-	@Test
-	public void testPathFragments() {
-		String[] expected = {"op", "sub", "resource"};
-		var actual = Links.pathFragments(TEST_URI);
-		assertArrayEquals(expected, actual);
-	}
+            // getQuery() returns decoded or not? Your class uses uri.getQuery() (decoded)
+            // and uri.getRawQuery() (raw). JDK behavior: getQuery() is decoded.
+            assertEquals("file=/tmp/data.xml&flag", link.getQuery());
+            assertEquals("file=%2Ftmp%2Fdata.xml&flag", link.getRawQuery());
+        }
 
-	@Test
-	public void testSubPath() {
-		var actual = Links.subPath(TEST_URI);
-		assertEquals("sub/resource", actual);
-	}
+        @Test
+        public void parsedQueryToMap_handlesMissingValues() {
+            FijiURILink link = FijiURILink.parse("fiji://BDV/open?a=1&b=2&flag");
+            Map<String, String> map = link.getParsedQuery();
+            assertEquals(3, map.size());
+            assertEquals("1", map.get("a"));
+            assertEquals("2", map.get("b"));
+            assertNull(map.get("flag")); // key present with no value
+        }
 
-	@Test
-	public void testQuery() {
-		Map<String, String> expected = new HashMap<>();
-		expected.put("fruit", "apple");
-		expected.put("veggie", "beans");
-		var actual = Links.query(TEST_URI);
-		assertEquals(expected, actual);
-	}
-}
+        @Test
+        public void toString_roundTrips_reasonably() {
+            String u = "fiji://BDV/open?x=1&y=2";
+            FijiURILink link = FijiURILink.parse(u);
+            assertEquals(u, link.toString());
+        }
+    
+
+        @Test
+        public void rejectsWrongScheme() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> FijiURILink.parse("http://BDV/open?x=1"));
+            assertTrue(ex.getMessage().contains("Scheme must be fiji://"));
+        }
+
+        @Test
+        public void rejectsMissingPlugin() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> FijiURILink.parse("fiji:///open?x=1"));
+            assertTrue(ex.getMessage().contains("Missing plugin name"));
+        }
+
+        @Test
+        public void rejectsInvalidUriSyntax() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> FijiURILink.parse("fiji://BDV/open?bad|query"));
+        }
+    
+
+
+        @Test
+        public void returnsNullOnError() {
+            assertNull(FijiURILink.tryParse("not-a-uri"));
+            assertNull(FijiURILink.tryParse("http://BDV")); // wrong scheme
+            assertNull(FijiURILink.tryParse("fiji:///"));
+        }
+
+        @Test
+        public void returnsObjectOnSuccess() {
+            FijiURILink ok = FijiURILink.tryParse("fiji://BDV/open?q=ok");
+            assertNotNull(ok);
+            assertEquals("BDV", ok.getPlugin());
+            assertEquals("open", ok.getSubPlugin());
+            assertEquals("q=ok", ok.getQuery());
+        }
+    }
+
