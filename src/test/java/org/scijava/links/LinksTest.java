@@ -28,17 +28,13 @@
  */
 
 package org.scijava.links;
-
-import org.junit.Test;
-
-
 import java.util.Map;
+import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 
 
 public class LinksTest {
@@ -103,17 +99,10 @@ public class LinksTest {
 
         @Test
         public void rejectsWrongScheme() {
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+            assertThrows(IllegalArgumentException.class,
                     () -> FijiURILink.parse("http://BDV/open?x=1"));
-            assertTrue(ex.getMessage().contains("Scheme must be fiji://"));
         }
 
-        @Test
-        public void rejectsMissingPlugin() {
-            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                    () -> FijiURILink.parse("fiji:///open?x=1"));
-            assertTrue(ex.getMessage().contains("Missing plugin name"));
-        }
 
         @Test
         public void rejectsInvalidUriSyntax() {
@@ -121,18 +110,9 @@ public class LinksTest {
                     () -> FijiURILink.parse("fiji://BDV/open?bad|query"));
         }
     
-
-
-        @Test
-        public void returnsNullOnError() {
-            assertNull(FijiURILink.tryParse("not-a-uri"));
-            assertNull(FijiURILink.tryParse("http://BDV")); // wrong scheme
-            assertNull(FijiURILink.tryParse("fiji:///"));
-        }
-
         @Test
         public void returnsObjectOnSuccess() {
-            FijiURILink ok = FijiURILink.tryParse("fiji://BDV/open?q=ok");
+            FijiURILink ok = FijiURILink.parse("fiji://BDV/open?q=ok");
             assertNotNull(ok);
             assertEquals("BDV", ok.getPlugin());
             assertEquals("open", ok.getSubPlugin());

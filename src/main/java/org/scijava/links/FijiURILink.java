@@ -31,11 +31,6 @@ package org.scijava.links;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Arrays;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.Objects;
 
 /**
  * Utility class for working with {@link URI} objects.
@@ -44,11 +39,12 @@ import java.util.Objects;
  */
 public final class FijiURILink {
 
+    public static final String FIJI_SCHEME = "fiji";
 
-    private final String plugin;     // e.g., "BDV"
-    private final String subPlugin;  // e.g., "open" (nullable)
-    private final String query;      // e.g., "a=1&b=2" (nullable)
-    private final String rawQuery;   // e.g., "a=1&b=2" (nullable)
+    private final String plugin; // e.g., "BDV"
+    private final String subPlugin; // e.g., "open" (nullable)
+    private final String query; // e.g., "a=1&b=2" (nullable)
+    private final String rawQuery; // e.g., "a=1&b=2" (nullable)
 
     private FijiURILink(String plugin, String subPlugin, String query, String rawQuery) {
         this.plugin = plugin;
@@ -58,13 +54,15 @@ public final class FijiURILink {
     }
 
     public static FijiURILink parse(String uriString) {
-        Objects.requireNonNull(uriString, "uriString");
-        final URI uri;
         try {
-            uri = new URI(uriString);
-        } catch (URISyntaxException e) {
+            URI uri = URI.create(uriString);
+            return parse(uri);
+        } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid URI: " + uriString, e);
         }
+    }
+
+    public static FijiURILink parse(URI uri) {
 
         if (!"fiji".equalsIgnoreCase(uri.getScheme())) {
             throw new IllegalArgumentException("Scheme must be fiji://");
@@ -87,15 +85,27 @@ public final class FijiURILink {
         // Raw query (no '?'), leave as-is; users can parse if they want.
         String q = uri.getQuery();
         // Optional: decode percent-escapes (uncomment if desired)
-        // q = (q == null) ? null : java.net.URLDecoder.decode(q, StandardCharsets.UTF_8);
+        // q = (q == null) ? null : java.net.URLDecoder.decode(q,
+        // StandardCharsets.UTF_8);
         String raw = uri.getRawQuery();
         return new FijiURILink(plugin, sub, q, raw);
     }
 
-    public String getPlugin()    { return plugin; }
-    public String getSubPlugin() { return subPlugin; }    // may be null
-    public String getQuery()     { return query; }        // may be null
-    public String getRawQuery()  { return rawQuery; }     // may be null
+    public String getPlugin() {
+        return plugin;
+    }
+
+    public String getSubPlugin() {
+        return subPlugin;
+    } // may be null
+
+    public String getQuery() {
+        return query;
+    } // may be null
+
+    public String getRawQuery() {
+        return rawQuery;
+    } // may be null
 
     public Map<String, String> getParsedQuery() {
         final LinkedHashMap<String, String> map = new LinkedHashMap<>();
@@ -109,16 +119,13 @@ public final class FijiURILink {
         return map;
     }
 
-    @Override public String toString() {
+    @Override
+    public String toString() {
         StringBuilder sb = new StringBuilder("fiji://").append(plugin);
-        if (subPlugin != null) sb.append('/').append(subPlugin);
-        if (query != null) sb.append('?').append(query);
+        if (subPlugin != null)
+            sb.append('/').append(subPlugin);
+        if (query != null)
+            sb.append('?').append(query);
         return sb.toString();
     }
-
-    // Convenience helper: returns null instead of throwing
-    public static FijiURILink tryParse(String uriString) {
-        try { return parse(uriString); } catch (RuntimeException e) { return null; }
-    }
 }
-        

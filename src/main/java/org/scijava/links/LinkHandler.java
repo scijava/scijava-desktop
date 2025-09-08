@@ -35,7 +35,7 @@ import java.net.URI;
 /**
  * A plugin for handling URI links.
  *
- * @author Curtis Rueden
+ * @author Curtis Rueden, Marwan Zouinkhi
  */
 public interface LinkHandler extends HandlerPlugin<URI> {
 
@@ -46,8 +46,14 @@ public interface LinkHandler extends HandlerPlugin<URI> {
      */
     void handle(URI uri);
 
+    String getName();
+
     @Override
     default Class<URI> getType() {
         return URI.class;
+    }
+
+    default public boolean supports(final URI uri) {
+        return FijiURILink.parse(uri).getPlugin().toUpperCase().equals(getName().toUpperCase());
     }
 }
