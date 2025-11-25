@@ -53,7 +53,7 @@ import org.scijava.plugin.Plugin;
 /**
  * A platform implementation for handling Apple macOS platform issues:
  * <ul>
- * <li>Application events are rebroadcast as ImageJ events.</li>
+ * <li>Application events are rebroadcast as SciJava events.</li>
  * <li>macOS screen menu bar is enabled.</li>
  * <li>Special screen menu bar menu items are handled.</li>
  * </ul>
@@ -92,7 +92,7 @@ public class MacOSPlatform extends AbstractPlatform {
 		// remove app commands from menu structure
 		if (SCREEN_MENU) removeAppCommandsFromMenu();
 
-		// translate macOS application events into ImageJ events
+		// translate macOS application events into SciJava events
 		final EventService eventService = getPlatformService().eventService();
 		try {
 			appEventDispatcher = new MacOSAppEventDispatcher(eventService);

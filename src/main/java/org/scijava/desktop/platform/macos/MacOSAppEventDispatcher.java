@@ -68,7 +68,7 @@ import org.scijava.platform.event.AppUserSessionEvent;
 import org.scijava.platform.event.AppVisibleEvent;
 
 /**
- * Rebroadcasts macOS application events as ImageJ events.
+ * Rebroadcasts macOS application events as SciJava events.
  * 
  * @author Curtis Rueden
  */
