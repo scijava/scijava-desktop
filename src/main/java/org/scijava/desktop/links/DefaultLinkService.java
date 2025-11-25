@@ -31,6 +31,7 @@ package org.scijava.desktop.links;
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
 import org.scijava.desktop.links.SchemeInstaller;
+import org.scijava.desktop.platform.linux.LinuxSchemeInstaller;
 import org.scijava.desktop.platform.windows.WindowsSchemeInstaller;
 import org.scijava.log.LogService;
 import org.scijava.plugin.AbstractHandlerService;
@@ -64,7 +65,7 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 			}
 		}
 
-		// Register URI schemes with the operating system (Windows only).
+		// Register URI schemes with the operating system.
 		installSchemes();
 	}
 
@@ -72,7 +73,7 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	 * Installs URI schemes with the operating system.
 	 * <p>
 	 * This method collects all schemes supported by registered {@link LinkHandler}
-	 * plugins and registers them with the OS (currently Windows only).
+	 * plugins and registers them with the OS (Windows and Linux supported).
 	 * </p>
 	 */
 	private void installSchemes() {
@@ -111,13 +112,23 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	/**
 	 * Creates the appropriate {@link SchemeInstaller} for the current platform.
 	 * <p>
-	 * Currently only Windows is supported. macOS uses Info.plist in the .app bundle
-	 * (configured at build time), and Linux .desktop file management belongs in
-	 * scijava-plugins-platforms.
+	 * Windows and Linux are supported via runtime registration. macOS uses Info.plist
+	 * in the .app bundle (configured at build time, not at runtime).
 	 * </p>
 	 */
 	private SchemeInstaller createInstaller() {
-		return new WindowsSchemeInstaller(log);
+		final String os = System.getProperty("os.name");
+		if (os == null) return null;
+
+		final String osLower = os.toLowerCase();
+		if (osLower.contains("linux")) {
+			return new LinuxSchemeInstaller(log);
+		}
+		else if (osLower.contains("win")) {
+			return new WindowsSchemeInstaller(log);
+		}
+
+		return null; // macOS or other unsupported platforms
 	}
 
 	/**
