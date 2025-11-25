@@ -30,12 +30,18 @@ package org.scijava.desktop.links;
 
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
+import org.scijava.desktop.links.SchemeInstaller;
+import org.scijava.desktop.platform.windows.WindowsSchemeInstaller;
+import org.scijava.log.LogService;
 import org.scijava.plugin.AbstractHandlerService;
+import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.service.Service;
 
 import java.awt.Desktop;
 import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Default implementation of {@link LinkService}.
@@ -45,13 +51,84 @@ import java.net.URI;
 @Plugin(type = Service.class)
 public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler> implements LinkService {
 
+	@Parameter(required = false)
+	private LogService log;
+
 	@EventHandler
 	private void onEvent(final ContextCreatedEvent evt) {
 		// Register URI handler with the desktop system, if possible.
-		if (!Desktop.isDesktopSupported()) return;
-		final Desktop desktop = Desktop.getDesktop();
-		if (!desktop.isSupported(Desktop.Action.APP_OPEN_URI)) return;
-		desktop.setOpenURIHandler(event -> handle(event.getURI()));
+		if (Desktop.isDesktopSupported()) {
+			final Desktop desktop = Desktop.getDesktop();
+			if (desktop.isSupported(Desktop.Action.APP_OPEN_URI)) {
+				desktop.setOpenURIHandler(event -> handle(event.getURI()));
+			}
+		}
+
+		// Register URI schemes with the operating system (Windows only).
+		installSchemes();
+	}
+
+	/**
+	 * Installs URI schemes with the operating system.
+	 * <p>
+	 * This method collects all schemes supported by registered {@link LinkHandler}
+	 * plugins and registers them with the OS (currently Windows only).
+	 * </p>
+	 */
+	private void installSchemes() {
+		// Create the appropriate installer for this platform
+		final SchemeInstaller installer = createInstaller();
+		if (installer == null || !installer.isSupported()) {
+			if (log != null) log.debug("Scheme installation not supported on this platform");
+			return;
+		}
+
+		// Get executable path from system property
+		final String executablePath = System.getProperty("scijava.app.executable");
+		if (executablePath == null) {
+			if (log != null) log.debug("No executable path set (scijava.app.executable property)");
+			return;
+		}
+
+		// Collect all schemes from registered handlers
+		final Set<String> schemes = collectSchemes();
+		if (schemes.isEmpty()) {
+			if (log != null) log.debug("No URI schemes to register");
+			return;
+		}
+
+		// Install each scheme
+		for (final String scheme : schemes) {
+			try {
+				installer.install(scheme, executablePath);
+			}
+			catch (final Exception e) {
+				if (log != null) log.error("Failed to install URI scheme: " + scheme, e);
+			}
+		}
+	}
+
+	/**
+	 * Creates the appropriate {@link SchemeInstaller} for the current platform.
+	 * <p>
+	 * Currently only Windows is supported. macOS uses Info.plist in the .app bundle
+	 * (configured at build time), and Linux .desktop file management belongs in
+	 * scijava-plugins-platforms.
+	 * </p>
+	 */
+	private SchemeInstaller createInstaller() {
+		return new WindowsSchemeInstaller(log);
+	}
+
+	/**
+	 * Collects all URI schemes from registered {@link LinkHandler} plugins.
+	 */
+	private Set<String> collectSchemes() {
+		final Set<String> schemes = new HashSet<>();
+		for (final LinkHandler handler : getInstances()) {
+			schemes.addAll(handler.getSchemes());
+		}
+		return schemes;
 	}
 
 }

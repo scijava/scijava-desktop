@@ -31,6 +31,8 @@ package org.scijava.desktop.links;
 import org.scijava.plugin.HandlerPlugin;
 
 import java.net.URI;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * A plugin for handling URI links.
@@ -45,6 +47,21 @@ public interface LinkHandler extends HandlerPlugin<URI> {
      * @param uri The URI to handle.
      */
     void handle(URI uri);
+
+    /**
+     * Gets the URI schemes that this handler supports.
+     * <p>
+     * This method is used for registering URI schemes with the operating system.
+     * Handlers should return a list of scheme names (e.g., "fiji", "imagej")
+     * that they can handle. Return an empty list if the handler does not
+     * require OS-level scheme registration.
+     * </p>
+     *
+     * @return List of URI schemes supported by this handler
+     */
+    default List<String> getSchemes() {
+        return Collections.emptyList();
+    }
 
     @Override
     default Class<URI> getType() {
