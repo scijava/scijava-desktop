@@ -41,33 +41,77 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Simple parser and writer for Linux .desktop files.
+ * Parser and writer for Linux .desktop files.
  * <p>
- * Supports reading and writing key-value pairs within the [Desktop Entry] section.
- * This implementation is minimal and focused on URI scheme registration needs.
+ * Instance-based API for reading and writing .desktop files. Supports all
+ * standard [Desktop Entry] section fields plus custom keys. This class
+ * provides a convenient way to manage desktop files for both application
+ * launching and URI scheme registration.
+ * </p>
+ * <p>
+ * Note: This class will eventually move to {@code org.scijava.util.DesktopFile}
+ * in scijava-common once the design is finalized.
  * </p>
  *
  * @author Curtis Rueden
  */
 public class DesktopFile {
 
+	private final Path path;
 	private final Map<String, String> entries;
 	private final List<String> comments;
 
-	public DesktopFile() {
+	/**
+	 * Creates a DesktopFile instance for the given path.
+	 * <p>
+	 * If the file exists, it will be loaded when {@link #load()} is called.
+	 * If it doesn't exist, the entries map will be empty until populated
+	 * programmatically or {@link #load()} is called.
+	 * </p>
+	 *
+	 * @param path the path to the .desktop file
+	 */
+	public DesktopFile(final Path path) {
+		this.path = path;
 		this.entries = new LinkedHashMap<>();
 		this.comments = new ArrayList<>();
 	}
 
 	/**
-	 * Parses a .desktop file from disk.
+	 * Gets the file path for this desktop file.
 	 *
-	 * @param path Path to the .desktop file
-	 * @return Parsed DesktopFile
+	 * @return the path
+	 */
+	public Path path() {
+		return path;
+	}
+
+	/**
+	 * Checks if the file exists on disk.
+	 *
+	 * @return true if the file exists
+	 */
+	public boolean exists() {
+		return Files.exists(path);
+	}
+
+	/**
+	 * Loads the .desktop file from disk.
+	 * <p>
+	 * Clears any existing entries and comments, then reads from the file.
+	 * If the file doesn't exist, entries will be empty after this call.
+	 * </p>
+	 *
 	 * @throws IOException if reading fails
 	 */
-	public static DesktopFile parse(final Path path) throws IOException {
-		final DesktopFile df = new DesktopFile();
+	public void load() throws IOException {
+		entries.clear();
+		comments.clear();
+
+		if (!exists()) {
+			return;
+		}
+
 		boolean inDesktopEntry = false;
 
 		try (final BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
@@ -90,7 +134,7 @@ public class DesktopFile {
 
 				// Skip empty lines and comments
 				if (trimmed.isEmpty() || trimmed.startsWith("#")) {
-					df.comments.add(line);
+					comments.add(line);
 					continue;
 				}
 
@@ -99,21 +143,21 @@ public class DesktopFile {
 				if (equals > 0) {
 					final String key = line.substring(0, equals).trim();
 					final String value = line.substring(equals + 1);
-					df.entries.put(key, value);
+					entries.put(key, value);
 				}
 			}
 		}
-
-		return df;
 	}
 
 	/**
-	 * Writes the .desktop file to disk.
+	 * Saves the .desktop file to disk.
+	 * <p>
+	 * Creates parent directories if needed. Overwrites any existing file.
+	 * </p>
 	 *
-	 * @param path Path to write to
 	 * @throws IOException if writing fails
 	 */
-	public void writeTo(final Path path) throws IOException {
+	public void save() throws IOException {
 		// Ensure parent directory exists
 		final Path parent = path.getParent();
 		if (parent != null && !Files.exists(parent)) {
@@ -141,6 +185,48 @@ public class DesktopFile {
 	}
 
 	/**
+	 * Deletes the file from disk.
+	 *
+	 * @throws IOException if deletion fails
+	 */
+	public void delete() throws IOException {
+		Files.deleteIfExists(path);
+	}
+
+	/**
+	 * Parses a .desktop file from disk (static convenience method).
+	 *
+	 * @param path Path to the .desktop file
+	 * @return Parsed DesktopFile
+	 * @throws IOException if reading fails
+	 */
+	public static DesktopFile parse(final Path path) throws IOException {
+		final DesktopFile df = new DesktopFile(path);
+		df.load();
+		return df;
+	}
+
+	/**
+	 * Writes the .desktop file to disk (for backward compatibility).
+	 *
+	 * @param path Path to write to
+	 * @throws IOException if writing fails
+	 */
+	public void writeTo(final Path path) throws IOException {
+		final Path oldPath = this.path;
+		// Temporarily change path, save, then restore
+		try {
+			// Create a temporary instance with the new path
+			final DesktopFile temp = new DesktopFile(path);
+			temp.entries.putAll(this.entries);
+			temp.comments.addAll(this.comments);
+			temp.save();
+		} catch (final Exception e) {
+			throw new IOException("Failed to write to " + path, e);
+		}
+	}
+
+	/**
 	 * Gets the value for a key.
 	 *
 	 * @param key The key
@@ -157,8 +243,97 @@ public class DesktopFile {
 	 * @param value The value
 	 */
 	public void set(final String key, final String value) {
-		entries.put(key, value);
+		if (value == null) {
+			entries.remove(key);
+		} else {
+			entries.put(key, value);
+		}
 	}
+
+	// -- Standard field accessors --
+
+	public String getType() {
+		return get("Type");
+	}
+
+	public void setType(final String type) {
+		set("Type", type);
+	}
+
+	public String getVersion() {
+		return get("Version");
+	}
+
+	public void setVersion(final String version) {
+		set("Version", version);
+	}
+
+	public String getName() {
+		return get("Name");
+	}
+
+	public void setName(final String name) {
+		set("Name", name);
+	}
+
+	public String getGenericName() {
+		return get("GenericName");
+	}
+
+	public void setGenericName(final String genericName) {
+		set("GenericName", genericName);
+	}
+
+	public String getComment() {
+		return get("Comment");
+	}
+
+	public void setComment(final String comment) {
+		set("Comment", comment);
+	}
+
+	public String getExec() {
+		return get("Exec");
+	}
+
+	public void setExec(final String exec) {
+		set("Exec", exec);
+	}
+
+	public String getIcon() {
+		return get("Icon");
+	}
+
+	public void setIcon(final String icon) {
+		set("Icon", icon);
+	}
+
+	public String getPath() {
+		return get("Path");
+	}
+
+	public void setPath(final String path) {
+		set("Path", path);
+	}
+
+	public boolean getTerminal() {
+		final String value = get("Terminal");
+		return "true".equalsIgnoreCase(value);
+	}
+
+	public void setTerminal(final boolean terminal) {
+		set("Terminal", terminal ? "true" : "false");
+	}
+
+	public String getCategories() {
+		return get("Categories");
+	}
+
+	public void setCategories(final String categories) {
+		set("Categories", categories);
+	}
+
+	// -- MimeType handling --
 
 	/**
 	 * Checks if a MimeType entry contains a specific MIME type.

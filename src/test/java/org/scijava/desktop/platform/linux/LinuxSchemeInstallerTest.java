@@ -62,11 +62,11 @@ public class LinuxSchemeInstallerTest {
 		tempDesktopFile = Files.createTempFile("test-app", ".desktop");
 
 		// Write basic desktop file content
-		final DesktopFile df = new DesktopFile();
+		final DesktopFile df = new DesktopFile(tempDesktopFile);
 		df.set("Type", "Application");
 		df.set("Name", "Test App");
 		df.set("Exec", "/usr/bin/test-app %U");
-		df.writeTo(tempDesktopFile);
+		df.save();
 
 		// Set system property
 		originalProperty = System.getProperty("scijava.app.desktop-file");
