@@ -31,6 +31,8 @@ package org.scijava.desktop;
 
 import java.io.IOException;
 
+import org.scijava.desktop.links.SchemeInstaller;
+
 /**
  * Marker interface for platform implementations that provide desktop
  * integration features.
@@ -79,4 +81,11 @@ public interface DesktopIntegrationProvider {
 	 * @throws UnsupportedOperationException if not supported on this platform
 	 */
 	void setDesktopIconPresent(final boolean install) throws IOException;
+
+	/**
+	 * Creates a SchemeInstaller for this platform.
+	 *
+	 * @return a SchemeInstaller, or null if not supported on this platform
+	 */
+	SchemeInstaller getSchemeInstaller();
 }

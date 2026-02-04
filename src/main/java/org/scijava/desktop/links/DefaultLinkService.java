@@ -30,10 +30,11 @@ package org.scijava.desktop.links;
 
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
+import org.scijava.desktop.DesktopIntegrationProvider;
 import org.scijava.desktop.links.SchemeInstaller;
-import org.scijava.desktop.platform.linux.LinuxSchemeInstaller;
-import org.scijava.desktop.platform.windows.WindowsSchemeInstaller;
 import org.scijava.log.LogService;
+import org.scijava.platform.Platform;
+import org.scijava.platform.PlatformService;
 import org.scijava.plugin.AbstractHandlerService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
@@ -54,6 +55,9 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 
 	@Parameter(required = false)
 	private LogService log;
+
+	@Parameter(required = false)
+	private PlatformService platformService;
 
 	@EventHandler
 	private void onEvent(final ContextCreatedEvent evt) {
@@ -112,23 +116,23 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	/**
 	 * Creates the appropriate {@link SchemeInstaller} for the current platform.
 	 * <p>
-	 * Windows and Linux are supported via runtime registration. macOS uses Info.plist
-	 * in the .app bundle (configured at build time, not at runtime).
+	 * Uses the platform plugin system to obtain the installer, avoiding
+	 * hardcoded OS checks. Windows and Linux platforms provide runtime registration.
+	 * macOS uses Info.plist in the .app bundle (configured at build time).
 	 * </p>
 	 */
 	private SchemeInstaller createInstaller() {
-		final String os = System.getProperty("os.name");
-		if (os == null) return null;
+		if (platformService == null) return null;
 
-		final String osLower = os.toLowerCase();
-		if (osLower.contains("linux")) {
-			return new LinuxSchemeInstaller(log);
-		}
-		else if (osLower.contains("win")) {
-			return new WindowsSchemeInstaller(log);
+		// Find a platform that provides a SchemeInstaller
+		for (final Platform platform : platformService.getTargetPlatforms()) {
+			if (platform instanceof DesktopIntegrationProvider) {
+				final SchemeInstaller installer = ((DesktopIntegrationProvider) platform).getSchemeInstaller();
+				if (installer != null) return installer;
+			}
 		}
 
-		return null; // macOS or other unsupported platforms
+		return null;
 	}
 
 	/**

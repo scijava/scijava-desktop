@@ -31,7 +31,9 @@ package org.scijava.desktop.platform.linux;
 
 import org.scijava.app.AppService;
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.links.LinkHandler;
 import org.scijava.desktop.links.LinkService;
+import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
 import org.scijava.platform.AbstractPlatform;
 import org.scijava.platform.Platform;
@@ -44,6 +46,9 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * A platform implementation for handling Linux platform issues.
@@ -109,7 +114,14 @@ public class LinuxPlatform extends AbstractPlatform
 	public boolean isWebLinksEnabled() {
 		try {
 			final DesktopFile df = getOrCreateDesktopFile();
-			return df.hasMimeType("x-scheme-handler/myapp");
+			final Set<String> schemes = collectSchemes();
+			if (schemes.isEmpty()) return false;
+
+			// Check if any scheme is registered
+			for (final String scheme : schemes) {
+				if (df.hasMimeType("x-scheme-handler/" + scheme)) return true;
+			}
+			return false;
 		} catch (final IOException e) {
 			if (log != null) {
 				log.debug("Failed to check web links status", e);
@@ -124,13 +136,17 @@ public class LinuxPlatform extends AbstractPlatform
 	@Override
 	public void setWebLinksEnabled(final boolean enable) throws IOException {
 		final DesktopFile df = getOrCreateDesktopFile();
-		
-		if (enable) {
-			df.addMimeType("x-scheme-handler/fiji");
-		} else {
-			df.removeMimeType("x-scheme-handler/fiji");
+
+		final Set<String> schemes = collectSchemes();
+		for (final String scheme : schemes) {
+			final String mimeType = "x-scheme-handler/" + scheme;
+			if (enable) {
+				df.addMimeType(mimeType);
+			} else {
+				df.removeMimeType(mimeType);
+			}
 		}
-		
+
 		df.save();
 	}
 
@@ -193,6 +209,11 @@ public class LinuxPlatform extends AbstractPlatform
 		else {
 			df.delete();
 		}
+	}
+
+	@Override
+	public SchemeInstaller getSchemeInstaller() {
+		return new LinuxSchemeInstaller(log);
 	}
 
 	// -- Helper methods --
@@ -295,5 +316,23 @@ public class LinuxPlatform extends AbstractPlatform
 	 */
 	private String sanitizeFileName(final String name) {
 		return name.replaceAll("[^a-zA-Z0-9._-]", "-").toLowerCase();
+	}
+
+	// -- Helper methods --
+
+	/**
+	 * Collects all URI schemes from registered LinkHandler plugins.
+	 */
+	private Set<String> collectSchemes() {
+		final Set<String> schemes = new HashSet<>();
+		if (linkService == null) return schemes;
+
+		for (final LinkHandler handler : linkService.getInstances()) {
+			final List<String> handlerSchemes = handler.getSchemes();
+			if (handlerSchemes != null) {
+				schemes.addAll(handlerSchemes);
+			}
+		}
+		return schemes;
 	}
 }

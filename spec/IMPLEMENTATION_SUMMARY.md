@@ -108,8 +108,8 @@ The component uses SciJava's plugin architecture to avoid hardcoded OS checks:
 **Impact**: Violates plugin architecture; makes adding new platforms difficult.
 
 **Fix Required**:
-1. Add SchemeInstallerProvider interface
-2. Platforms implement SchemeInstallerProvider
+1. Add getSchemeInstaller method
+2. Platforms implement getSchemeInstaller
 3. DefaultLinkService queries PlatformService.platform() instead of checking OS name
 
 ### ❌ Not Yet Implemented
@@ -345,7 +345,7 @@ Linux .desktop files are used by both LinuxPlatform (for desktop icon) and Linux
 See NEXT.md for detailed implementation plan, including:
 
 1. Remove hardcoded scheme names (Priority 1)
-2. Add SchemeInstallerProvider interface (Priority 2)
+2. Add getSchemeInstaller method (Priority 2)
 3. Refactor DefaultLinkService#createInstaller() (Priority 3)
 4. Implement first launch dialog (Optional)
 5. Add file extension registration (Future)

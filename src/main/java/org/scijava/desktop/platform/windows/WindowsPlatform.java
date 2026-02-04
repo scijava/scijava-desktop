@@ -31,8 +31,14 @@ package org.scijava.desktop.platform.windows;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.links.LinkHandler;
+import org.scijava.desktop.links.LinkService;
+import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
 import org.scijava.platform.AbstractPlatform;
 import org.scijava.platform.Platform;
@@ -51,6 +57,9 @@ public class WindowsPlatform extends AbstractPlatform
 
 	@Parameter(required = false)
 	private LogService log;
+
+	@Parameter(required = false)
+	private LinkService linkService;
 
 	// -- Platform methods --
 
@@ -83,7 +92,14 @@ public class WindowsPlatform extends AbstractPlatform
 	@Override
 	public boolean isWebLinksEnabled() {
 		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
-		return installer.isInstalled("myapp");
+		final Set<String> schemes = collectSchemes();
+		if (schemes.isEmpty()) return false;
+
+		// Check if any scheme is installed
+		for (final String scheme : schemes) {
+			if (installer.isInstalled(scheme)) return true;
+		}
+		return false;
 	}
 
 	@Override
@@ -98,11 +114,22 @@ public class WindowsPlatform extends AbstractPlatform
 			throw new IOException("No executable path set (scijava.app.executable property)");
 		}
 
-		if (enable) {
-			installer.install("myapp", executablePath);
-		}
-		else {
-			installer.uninstall("myapp");
+		final Set<String> schemes = collectSchemes();
+		for (final String scheme : schemes) {
+			try {
+				if (enable) {
+					installer.install(scheme, executablePath);
+				}
+				else {
+					installer.uninstall(scheme);
+				}
+			}
+			catch (final Exception e) {
+				if (log != null) {
+					log.error("Failed to " + (enable ? "install" : "uninstall") +
+						" URI scheme: " + scheme, e);
+				}
+			}
 		}
 	}
 
@@ -116,5 +143,28 @@ public class WindowsPlatform extends AbstractPlatform
 	public void setDesktopIconPresent(final boolean install) {
 		// Note: Operation has no effect here.
 		// Desktop icon installation is not supported on Windows (add to Start menu manually).
+	}
+
+	@Override
+	public SchemeInstaller getSchemeInstaller() {
+		return new WindowsSchemeInstaller(log);
+	}
+
+	// -- Helper methods --
+
+	/**
+	 * Collects all URI schemes from registered LinkHandler plugins.
+	 */
+	private Set<String> collectSchemes() {
+		final Set<String> schemes = new HashSet<>();
+		if (linkService == null) return schemes;
+
+		for (final LinkHandler handler : linkService.getInstances()) {
+			final List<String> handlerSchemes = handler.getSchemes();
+			if (handlerSchemes != null) {
+				schemes.addAll(handlerSchemes);
+			}
+		}
+		return schemes;
 	}
 }

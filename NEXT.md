@@ -29,7 +29,19 @@ The component uses a plugin system where Platform implementations (LinuxPlatform
 - File extension registration
 - Windows Start Menu icon generation
 - First launch dialog for desktop integration opt-in
-- SchemeInstallerProvider interface for platforms
+
+## Implementation Phases
+
+### Phase 1: Fix Hardcoded Elements (High Priority)
+These fixes are required for scijava-desktop to work for applications other than Fiji.
+
+### Phase 2: File Extension Registration (High Priority)
+Core functionality for Fiji and other scientific applications.
+
+### Phase 3: Polish (Medium Priority)
+First launch dialog, Windows desktop icon, etc.
+
+---
 
 ## Priority Work Items
 
@@ -89,36 +101,16 @@ private Set<String> collectSchemes() {
 
 Similar changes needed for LinuxPlatform.
 
-### 2. Add SchemeInstallerProvider Interface
+### 2. Add getSchemeInstaller method
 
 **Goal**: Allow platforms to provide SchemeInstaller instances without hardcoding in DefaultLinkService.
 
-**New file**: `src/main/java/org/scijava/desktop/links/SchemeInstallerProvider.java`
-
-```java
-package org.scijava.desktop.links;
-
-/**
- * Interface for platforms that provide {@link SchemeInstaller} functionality.
- * <p>
- * Platform implementations can implement this interface to provide
- * platform-specific URI scheme installation capabilities.
- * </p>
- */
-public interface SchemeInstallerProvider {
-    /**
-     * Creates a SchemeInstaller for this platform.
-     *
-     * @return a SchemeInstaller, or null if not supported
-     */
-    SchemeInstaller getSchemeInstaller();
-}
-```
+**New method**: `DesktopIntegrationProvider#getSchemeInstaller()`
 
 **Files to modify**:
-- WindowsPlatform.java - implement SchemeInstallerProvider
-- LinuxPlatform.java - implement SchemeInstallerProvider
-- MacOSPlatform.java - implement SchemeInstallerProvider (return null)
+- WindowsPlatform.java - implement getSchemeInstaller
+- LinuxPlatform.java - implement getSchemeInstaller
+- MacOSPlatform.java - implement getSchemeInstaller (return null)
 
 ### 3. Refactor DefaultLinkService#createInstaller()
 
@@ -151,8 +143,8 @@ private SchemeInstaller createInstaller() {
     if (platformService == null) return null;
 
     final Platform platform = platformService.platform();
-    if (platform instanceof SchemeInstallerProvider) {
-        return ((SchemeInstallerProvider) platform).getSchemeInstaller();
+    if (platform instanceof DesktopIntegrationProvider) {
+        return ((DesktopIntegrationProvider) platform).getSchemeInstaller();
     }
 
     return null;
@@ -189,7 +181,7 @@ Either way: "To change these settings in the future, use Edit > Options > Deskto
 - If user selects "No", do nothing
 - Store user preference by writing to a local configuration file -- avoids showing dialog again
 
-### 5. File Extension Registration (Future)
+### 5. File Extension Registration (High Priority)
 
 **Scope**: Extend DesktopIntegrationProvider to support file type associations.
 
@@ -201,9 +193,52 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 ```
 
 **Platform implementations**:
-- **Linux**: Add MIME types to .desktop file (e.g., `image/tiff`, `application/x-imagej-macro`)
-- **Windows**: Register file associations in Registry under `HKCU\Software\Classes\.<ext>`
-- **macOS**: Declared in Info.plist (build-time, read-only)
+
+#### Linux (Complex - Custom MIME Types Required)
+
+**Problem**: Microscopy formats (.sdt, .czi, .nd2, .lif, etc.) lack standard MIME types.
+
+**Solution**: Register custom MIME types in `~/.local/share/mime/packages/fiji.xml`
+
+**Steps**:
+1. Create extension → MIME type mapping
+   - Standard formats: use existing types (`image/tiff`, `image/png`)
+   - Microscopy formats: define custom types (`application/x-zeiss-czi`, `application/x-nikon-nd2`)
+2. Generate `fiji.xml` with MIME type definitions
+3. Install to `~/.local/share/mime/packages/`
+4. Run `update-mime-database ~/.local/share/mime`
+5. Add MIME types to .desktop file's `MimeType=` field
+
+**MIME type naming convention**:
+- Use vendor-specific: `application/x-{vendor}-{format}`
+- Examples: `application/x-zeiss-czi`, `application/x-becker-hickl-sdt`
+
+**Unregistration**:
+- Remove MIME types from .desktop file (preserve URI schemes)
+- Optionally delete `~/.local/share/mime/packages/fiji.xml`
+- Run `update-mime-database` again
+
+#### Windows (Simple - SupportedTypes Only)
+
+**Solution**: Use `Applications\fiji.exe\SupportedTypes` registry approach
+
+**Steps**:
+1. Create `HKCU\Software\Classes\Applications\fiji.exe\SupportedTypes`
+2. Add each extension as a value: `.tif = ""`
+3. All ~150-200 extensions in one registry location
+
+**Safety**: Deletion is safe - only removes our own `Applications\fiji.exe` tree
+
+**Unregistration**:
+- Delete entire `HKCU\Software\Classes\Applications\fiji.exe` key
+
+#### macOS (Build-Time Only)
+
+**Solution**: Declare all extensions in Info.plist at build time
+
+**Format**: `CFBundleDocumentTypes` array with extension lists
+
+**No runtime action needed** - this is a packaging/build concern
 
 ### 6. Windows Start Menu Icon
 
@@ -216,6 +251,7 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 ## Testing Checklist
 
+### Phase 1 (Hardcoded Elements)
 - [ ] Test URI scheme registration on Windows (registry manipulation)
 - [ ] Test URI scheme registration on Linux (.desktop file updates)
 - [ ] Test desktop icon installation on Linux
@@ -224,6 +260,16 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 - [ ] Verify scheme collection from LinkHandler plugins
 - [ ] Test toggling features on/off via UI
 - [ ] Verify no hardcoded "fiji" references remain
+
+### Phase 2 (File Extensions)
+- [ ] Test Linux MIME type generation and installation
+- [ ] Verify `update-mime-database` runs successfully
+- [ ] Test file extension associations appear in file managers (Nautilus, Dolphin)
+- [ ] Test Windows SupportedTypes registration
+- [ ] Verify Fiji appears in "Open With" for all extensions
+- [ ] Test unregistration (verify complete cleanup)
+- [ ] Test with ~150-200 actual file extensions
+- [ ] Verify no `application/octet-stream` claims
 
 ## System Properties Reference
 
@@ -243,7 +289,6 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 ## Questions to Resolve
 
-1. Should SchemeInstallerProvider be a separate interface or extend Platform?
-2. How to handle partial scheme installation failures?
-3. Should first launch dialog be mandatory or optional?
-4. What file extensions should be supported by default?
+1. How to handle partial scheme installation failures?
+2. Should first launch dialog be mandatory or optional?
+3. What file extensions should be supported by default?

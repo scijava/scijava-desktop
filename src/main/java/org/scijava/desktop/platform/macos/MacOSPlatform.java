@@ -40,6 +40,7 @@ import javax.swing.JMenuBar;
 import org.scijava.command.CommandInfo;
 import org.scijava.command.CommandService;
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.display.event.window.WinActivatedEvent;
 import org.scijava.event.EventHandler;
 import org.scijava.event.EventService;
@@ -156,6 +157,12 @@ public class MacOSPlatform extends AbstractPlatform
 	public void setDesktopIconPresent(final boolean install) {
 		// Note: Operation has no effect here.
 		// Desktop icon installation is not supported on macOS (use Dock pinning instead).
+	}
+
+	@Override
+	public SchemeInstaller getSchemeInstaller() {
+		// macOS uses Info.plist for URI scheme registration (build-time only)
+		return null;
 	}
 
 	// -- Disposable methods --

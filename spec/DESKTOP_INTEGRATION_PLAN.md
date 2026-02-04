@@ -172,7 +172,7 @@ Applications configure desktop integration via system properties:
 
 2. **OS Checks**: DefaultLinkService:119-132 hardcodes OS name checks
    - Should use PlatformService to get active platform
-   - Should add SchemeInstallerProvider interface
+   - Should add getSchemeInstaller method
    - See NEXT.md Work Items #2 and #3
 
 ### Missing Features
@@ -256,7 +256,7 @@ java -Dscijava.app.executable="/path/to/myapp" \
 
 - Remove hardcoded "fiji" scheme references
 - Remove hardcoded OS checks in DefaultLinkService
-- Add SchemeInstallerProvider interface
+- Add getSchemeInstaller method
 
 ### ❌ Not Implemented
 
