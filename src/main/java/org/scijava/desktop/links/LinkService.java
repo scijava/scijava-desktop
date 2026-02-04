@@ -1,8 +1,8 @@
 /*-
  * #%L
- * URL scheme handlers for SciJava.
+ * Desktop integration for SciJava.
  * %%
- * Copyright (C) 2023 - 2025 SciJava developers.
+ * Copyright (C) 2010 - 2026 SciJava developers.
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
