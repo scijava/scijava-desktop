@@ -26,71 +26,32 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
+package org.scijava.desktop.links;
 
-package org.scijava.links;
+import org.scijava.event.ContextCreatedEvent;
+import org.scijava.event.EventHandler;
+import org.scijava.plugin.AbstractHandlerService;
+import org.scijava.plugin.Plugin;
+import org.scijava.service.Service;
 
-import org.junit.Test;
-
+import java.awt.Desktop;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
 
 /**
- * Tests {@link Links}.
+ * Default implementation of {@link LinkService}.
  *
  * @author Curtis Rueden
  */
-public class LinksTest {
+@Plugin(type = Service.class)
+public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler> implements LinkService {
 
-	private static final URI TEST_URI;
-
-	static {
-		try {
-			TEST_URI = new URI(
-				"scijava://user:pass@example.com:8080/op/sub/resource?" +
-				"fruit=apple&veggie=beans#section"
-			);
-		}
-		catch (URISyntaxException e) {
-			throw new RuntimeException(e);
-		}
+	@EventHandler
+	private void onEvent(final ContextCreatedEvent evt) {
+		// Register URI handler with the desktop system, if possible.
+		if (!Desktop.isDesktopSupported()) return;
+		final Desktop desktop = Desktop.getDesktop();
+		if (!desktop.isSupported(Desktop.Action.APP_OPEN_URI)) return;
+		desktop.setOpenURIHandler(event -> handle(event.getURI()));
 	}
 
-	@Test
-	public void testPath() {
-		var actual = Links.path(TEST_URI);
-		assertEquals("op/sub/resource", actual);
-	}
-
-	@Test
-	public void testOperation() {
-		var actual = Links.operation(TEST_URI);
-		assertEquals("op", actual);
-	}
-
-	@Test
-	public void testPathFragments() {
-		String[] expected = {"op", "sub", "resource"};
-		var actual = Links.pathFragments(TEST_URI);
-		assertArrayEquals(expected, actual);
-	}
-
-	@Test
-	public void testSubPath() {
-		var actual = Links.subPath(TEST_URI);
-		assertEquals("sub/resource", actual);
-	}
-
-	@Test
-	public void testQuery() {
-		Map<String, String> expected = new HashMap<>();
-		expected.put("fruit", "apple");
-		expected.put("veggie", "beans");
-		var actual = Links.query(TEST_URI);
-		assertEquals(expected, actual);
-	}
 }

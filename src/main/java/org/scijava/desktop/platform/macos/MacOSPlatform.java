@@ -28,7 +28,7 @@
  * #L%
  */
 
-package org.scijava.plugins.platforms.macos;
+package org.scijava.desktop.platform.macos;
 
 import java.io.IOException;
 import java.net.URL;

@@ -1,8 +1,9 @@
-/*-
+/*
  * #%L
- * URL scheme handlers for SciJava.
+ * Core platform plugins for SciJava applications.
  * %%
- * Copyright (C) 2023 - 2025 SciJava developers.
+ * Copyright (C) 2010 - 2015 Board of Regents of the University of
+ * Wisconsin-Madison.
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,32 +27,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links;
 
-import org.scijava.event.ContextCreatedEvent;
-import org.scijava.event.EventHandler;
-import org.scijava.plugin.AbstractHandlerService;
+package org.scijava.desktop.platform.windows;
+
+import java.io.IOException;
+import java.net.URL;
+
+import org.scijava.platform.AbstractPlatform;
+import org.scijava.platform.Platform;
 import org.scijava.plugin.Plugin;
-import org.scijava.service.Service;
-
-import java.awt.Desktop;
-import java.net.URI;
 
 /**
- * Default implementation of {@link LinkService}.
- *
- * @author Curtis Rueden
+ * A platform implementation for handling Windows platform issues.
+ * 
+ * @author Johannes Schindelin
  */
-@Plugin(type = Service.class)
-public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler> implements LinkService {
+@Plugin(type = Platform.class, name = "Windows")
+public class WindowsPlatform extends AbstractPlatform {
 
-	@EventHandler
-	private void onEvent(final ContextCreatedEvent evt) {
-		// Register URI handler with the desktop system, if possible.
-		if (!Desktop.isDesktopSupported()) return;
-		final Desktop desktop = Desktop.getDesktop();
-		if (!desktop.isSupported(Desktop.Action.APP_OPEN_URI)) return;
-		desktop.setOpenURIHandler(event -> handle(event.getURI()));
+	// -- Platform methods --
+
+	@Override
+	public String osName() {
+		return "Windows";
+	}
+
+	@Override
+	public void open(final URL url) throws IOException {
+		final String cmd;
+		final String arg;
+		// NB: the cmd and arg separate is necessary for Windows OS
+		// to open the default browser correctly.
+		if (System.getProperty("os.name").startsWith("Windows 2000")) {
+			cmd = "rundll32";
+			arg = "shell32.dll,ShellExec_RunDLL";
+		}
+		else {
+			cmd = "rundll32";
+			arg = "url.dll,FileProtocolHandler";
+		}
+		if (getPlatformService().exec(cmd, arg, url.toString()) != 0) {
+			throw new IOException("Could not open " + url);
+		}
 	}
 
 }

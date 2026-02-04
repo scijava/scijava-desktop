@@ -1,9 +1,8 @@
-/*
+/*-
  * #%L
- * Core platform plugins for SciJava applications.
+ * URL scheme handlers for SciJava.
  * %%
- * Copyright (C) 2010 - 2015 Board of Regents of the University of
- * Wisconsin-Madison.
+ * Copyright (C) 2023 - 2025 SciJava developers.
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,48 +26,28 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
+package org.scijava.desktop.links;
 
-package org.scijava.plugins.platforms.windows;
+import org.scijava.plugin.HandlerPlugin;
 
-import java.io.IOException;
-import java.net.URL;
-
-import org.scijava.platform.AbstractPlatform;
-import org.scijava.platform.Platform;
-import org.scijava.plugin.Plugin;
+import java.net.URI;
 
 /**
- * A platform implementation for handling Windows platform issues.
- * 
- * @author Johannes Schindelin
+ * A plugin for handling URI links.
+ *
+ * @author Curtis Rueden
  */
-@Plugin(type = Platform.class, name = "Windows")
-public class WindowsPlatform extends AbstractPlatform {
+public interface LinkHandler extends HandlerPlugin<URI> {
 
-	// -- Platform methods --
+    /**
+     * Handles the given URI.
+     *
+     * @param uri The URI to handle.
+     */
+    void handle(URI uri);
 
-	@Override
-	public String osName() {
-		return "Windows";
-	}
-
-	@Override
-	public void open(final URL url) throws IOException {
-		final String cmd;
-		final String arg;
-		// NB: the cmd and arg separate is necessary for Windows OS
-		// to open the default browser correctly.
-		if (System.getProperty("os.name").startsWith("Windows 2000")) {
-			cmd = "rundll32";
-			arg = "shell32.dll,ShellExec_RunDLL";
-		}
-		else {
-			cmd = "rundll32";
-			arg = "url.dll,FileProtocolHandler";
-		}
-		if (getPlatformService().exec(cmd, arg, url.toString()) != 0) {
-			throw new IOException("Could not open " + url);
-		}
-	}
-
+    @Override
+    default Class<URI> getType() {
+        return URI.class;
+    }
 }

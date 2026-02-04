@@ -5,17 +5,17 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>40.0.0</version>
+		<version>43.0.0</version>
 		<relativePath />
 	</parent>
 
 	<groupId>org.scijava</groupId>
-	<artifactId>scijava-links</artifactId>
-	<version>1.0.1-SNAPSHOT</version>
+	<artifactId>scijava-desktop</artifactId>
+	<version>1.0.0-SNAPSHOT</version>
 
-	<name>SciJava Links</name>
-	<description>URL scheme handlers for SciJava.</description>
-	<url>https://github.com/scijava/scijava-links</url>
+	<name>SciJava Desktop</name>
+	<description>Desktop integration for SciJava.</description>
+	<url>https://github.com/scijava/scijava-desktop</url>
 	<inceptionYear>2010</inceptionYear>
 	<organization>
 		<name>SciJava</name>
@@ -47,12 +47,12 @@
 	<contributors>
 		<contributor>
 			<name>Mark Hiner</name>
-			<url>https://imagej.net/User:Hinerm</url>
+			<url>https://imagej.net/people/hinerm</url>
 			<properties><id>hinerm</id></properties>
 		</contributor>
 		<contributor>
 			<name>Johannes Schindelin</name>
-			<url>https://imagej.net/User:Schindelin</url>
+			<url>https://imagej.net/people/dscho</url>
 			<properties><id>dscho</id></properties>
 		</contributor>
 		<contributor>
@@ -78,24 +78,24 @@
 	</mailingLists>
 
 	<scm>
-		<connection>scm:git:https://github.com/scijava/scijava-links</connection>
-		<developerConnection>scm:git:git@github.com:scijava/scijava-links</developerConnection>
+		<connection>scm:git:https://github.com/scijava/scijava-desktop</connection>
+		<developerConnection>scm:git:git@github.com:scijava/scijava-desktop</developerConnection>
 		<tag>HEAD</tag>
-		<url>https://github.com/scijava/scijava-links</url>
+		<url>https://github.com/scijava/scijava-desktop</url>
 	</scm>
 
 	<issueManagement>
 		<system>GitHub Issues</system>
-		<url>https://github.com/scijava/scijava-links/issues</url>
+		<url>https://github.com/scijava/scijava-desktop/issues</url>
 	</issueManagement>
 
 	<ciManagement>
 		<system>GitHub Actions</system>
-		<url>https://github.com/scijava/scijava-links/actions</url>
+		<url>https://github.com/scijava/scijava-desktop/actions</url>
 	</ciManagement>
 
 	<properties>
-		<package-name>org.scijava.links</package-name>
+		<package-name>org.scijava.desktop</package-name>
 		<scijava.jvm.version>11</scijava.jvm.version>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>SciJava developers.</license.copyrightOwners>

@@ -26,7 +26,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links;
+package org.scijava.desktop.links;
 
 import java.net.URI;
 import java.util.LinkedHashMap;

@@ -26,51 +26,71 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links;
 
-import org.scijava.log.Logger;
-import org.scijava.plugin.HandlerService;
-import org.scijava.service.SciJavaService;
+package org.scijava.desktop.links;
+
+import org.junit.Test;
 
 import java.net.URI;
-import java.util.Optional;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 /**
- * Service interface for handling URIs.
+ * Tests {@link Links}.
  *
  * @author Curtis Rueden
- * @see LinkHandler
  */
-public interface LinkService extends HandlerService<URI, LinkHandler>,
-    SciJavaService
-{
+public class LinksTest {
 
-    default void handle(final URI uri) {
-        // Find the highest-priority link handler plugin which matches, if any.
-        final Optional<LinkHandler> match = getInstances().stream() //
-            .filter(handler -> handler.supports(uri)) //
-            .findFirst();
-        if (!match.isPresent()) {
-            // No appropriate link handler plugin was found.
-            final Logger log = log();
-            if (log != null) log.debug("No handler for URI: " + uri);
-            return; // no handler for this URI
-        }
-        // Handle the URI using the matching link handler.
-        match.get().handle(uri);
-    }
+	private static final URI TEST_URI;
 
-    // -- PTService methods --
+	static {
+		try {
+			TEST_URI = new URI(
+				"scijava://user:pass@example.com:8080/op/sub/resource?" +
+				"fruit=apple&veggie=beans#section"
+			);
+		}
+		catch (URISyntaxException e) {
+			throw new RuntimeException(e);
+		}
+	}
 
-    @Override
-    default Class<LinkHandler> getPluginType() {
-        return LinkHandler.class;
-    }
+	@Test
+	public void testPath() {
+		var actual = Links.path(TEST_URI);
+		assertEquals("op/sub/resource", actual);
+	}
 
-    // -- Typed methods --
+	@Test
+	public void testOperation() {
+		var actual = Links.operation(TEST_URI);
+		assertEquals("op", actual);
+	}
 
-    @Override
-    default Class<URI> getType() {
-        return URI.class;
-    }
+	@Test
+	public void testPathFragments() {
+		String[] expected = {"op", "sub", "resource"};
+		var actual = Links.pathFragments(TEST_URI);
+		assertArrayEquals(expected, actual);
+	}
+
+	@Test
+	public void testSubPath() {
+		var actual = Links.subPath(TEST_URI);
+		assertEquals("sub/resource", actual);
+	}
+
+	@Test
+	public void testQuery() {
+		Map<String, String> expected = new HashMap<>();
+		expected.put("fruit", "apple");
+		expected.put("veggie", "beans");
+		var actual = Links.query(TEST_URI);
+		assertEquals(expected, actual);
+	}
 }

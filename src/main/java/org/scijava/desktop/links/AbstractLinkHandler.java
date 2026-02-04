@@ -26,28 +26,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links;
+package org.scijava.desktop.links;
 
-import org.scijava.plugin.HandlerPlugin;
+import org.scijava.plugin.AbstractHandlerPlugin;
 
 import java.net.URI;
 
-/**
- * A plugin for handling URI links.
- *
- * @author Curtis Rueden
- */
-public interface LinkHandler extends HandlerPlugin<URI> {
-
-    /**
-     * Handles the given URI.
-     *
-     * @param uri The URI to handle.
-     */
-    void handle(URI uri);
-
-    @Override
-    default Class<URI> getType() {
-        return URI.class;
-    }
+public abstract class AbstractLinkHandler extends AbstractHandlerPlugin<URI>
+    implements LinkHandler
+{
+    // NB: No implementation needed.
 }

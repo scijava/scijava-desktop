@@ -26,12 +26,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links.console;
+package org.scijava.desktop.links.console;
 
 import org.scijava.Priority;
 import org.scijava.console.AbstractConsoleArgument;
 import org.scijava.console.ConsoleArgument;
-import org.scijava.links.LinkService;
+import org.scijava.desktop.links.LinkService;
 import org.scijava.log.Logger;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;

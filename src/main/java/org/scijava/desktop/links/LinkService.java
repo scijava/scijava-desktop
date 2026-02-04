@@ -26,14 +26,51 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.links;
+package org.scijava.desktop.links;
 
-import org.scijava.plugin.AbstractHandlerPlugin;
+import org.scijava.log.Logger;
+import org.scijava.plugin.HandlerService;
+import org.scijava.service.SciJavaService;
 
 import java.net.URI;
+import java.util.Optional;
 
-public abstract class AbstractLinkHandler extends AbstractHandlerPlugin<URI>
-    implements LinkHandler
+/**
+ * Service interface for handling URIs.
+ *
+ * @author Curtis Rueden
+ * @see LinkHandler
+ */
+public interface LinkService extends HandlerService<URI, LinkHandler>,
+    SciJavaService
 {
-    // NB: No implementation needed.
+
+    default void handle(final URI uri) {
+        // Find the highest-priority link handler plugin which matches, if any.
+        final Optional<LinkHandler> match = getInstances().stream() //
+            .filter(handler -> handler.supports(uri)) //
+            .findFirst();
+        if (!match.isPresent()) {
+            // No appropriate link handler plugin was found.
+            final Logger log = log();
+            if (log != null) log.debug("No handler for URI: " + uri);
+            return; // no handler for this URI
+        }
+        // Handle the URI using the matching link handler.
+        match.get().handle(uri);
+    }
+
+    // -- PTService methods --
+
+    @Override
+    default Class<LinkHandler> getPluginType() {
+        return LinkHandler.class;
+    }
+
+    // -- Typed methods --
+
+    @Override
+    default Class<URI> getType() {
+        return URI.class;
+    }
 }

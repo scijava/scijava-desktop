@@ -28,7 +28,7 @@
  * #L%
  */
 
-package org.scijava.plugins.platforms.macos;
+package org.scijava.desktop.platform.macos;
 
 import com.apple.eawt.AboutHandler;
 import com.apple.eawt.AppEvent.AboutEvent;

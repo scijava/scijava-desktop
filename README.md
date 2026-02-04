@@ -1,8 +1,10 @@
-[![Build Status](https://github.com/scijava/scijava-links/actions/workflows/build.yml/badge.svg)](https://github.com/scijava/scijava-links/actions/workflows/build.yml)
+[![Build Status](https://github.com/scijava/scijava-desktop/actions/workflows/build.yml/badge.svg)](https://github.com/scijava/scijava-desktop/actions/workflows/build.yml)
 
-This package provides a subsystem for SciJava applications
-that enables handling of URI-based links via plugins.
+This component provides supporting code for SciJava applications
+to manage their integration with the system native desktop:
 
-It is kept separate from the SciJava Common core classes
-because it requires Java 11 as a minimum, due to its use
-of java.awt.Desktop features not present in Java 8.
+* SciJava Platform plugins for macOS and Windows
+* A links subsystem to handle URI-based links via plugins
+
+The scijava-desktop component requires Java 11 as a minimum, due
+to its use of java.awt.Desktop features not present in Java 8.
