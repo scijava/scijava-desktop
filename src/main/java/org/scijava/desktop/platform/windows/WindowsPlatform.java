@@ -32,17 +32,25 @@ package org.scijava.desktop.platform.windows;
 import java.io.IOException;
 import java.net.URL;
 
+import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.log.LogService;
 import org.scijava.platform.AbstractPlatform;
 import org.scijava.platform.Platform;
+import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
 /**
  * A platform implementation for handling Windows platform issues.
- * 
+ *
  * @author Johannes Schindelin
  */
 @Plugin(type = Platform.class, name = "Windows")
-public class WindowsPlatform extends AbstractPlatform {
+public class WindowsPlatform extends AbstractPlatform
+	implements DesktopIntegrationProvider
+{
+
+	@Parameter(required = false)
+	private LogService log;
 
 	// -- Platform methods --
 
@@ -70,4 +78,43 @@ public class WindowsPlatform extends AbstractPlatform {
 		}
 	}
 
+	// -- DesktopIntegrationProvider methods --
+
+	@Override
+	public boolean isWebLinksEnabled() {
+		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
+		return installer.isInstalled("fiji");
+	}
+
+	@Override
+	public boolean isWebLinksToggleable() { return true; }
+
+	@Override
+	public void setWebLinksEnabled(final boolean enable) throws IOException {
+		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
+		final String executablePath = System.getProperty("scijava.app.executable");
+
+		if (executablePath == null) {
+			throw new IOException("No executable path set (scijava.app.executable property)");
+		}
+
+		if (enable) {
+			installer.install("fiji", executablePath);
+		}
+		else {
+			installer.uninstall("fiji");
+		}
+	}
+
+	@Override
+	public boolean isDesktopIconPresent() { return false; }
+
+	@Override
+	public boolean isDesktopIconToggleable() { return false; }
+
+	@Override
+	public void setDesktopIconPresent(final boolean install) {
+		// Note: Operation has no effect here.
+		// Desktop icon installation is not supported on Windows (add to Start menu manually).
+	}
 }

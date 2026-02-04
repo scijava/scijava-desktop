@@ -29,6 +29,9 @@
 
 package org.scijava.desktop.platform.linux;
 
+import org.scijava.app.AppService;
+import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.links.LinkService;
 import org.scijava.log.LogService;
 import org.scijava.platform.AbstractPlatform;
 import org.scijava.platform.Platform;
@@ -36,10 +39,8 @@ import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
-import java.io.BufferedWriter;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,14 +54,22 @@ import java.nio.file.Paths;
  * <ul>
  * <li>Application launcher in menus</li>
  * <li>Application icon</li>
- * <li>File associations (via separate configuration)</li>
- * <li>URI scheme handling (via scijava-links)</li>
+ * <li>File associations</li>
+ * <li>URI scheme handling</li>
  * </ul>
  *
  * @author Curtis Rueden
  */
 @Plugin(type = Platform.class, name = "Linux")
-public class LinuxPlatform extends AbstractPlatform {
+public class LinuxPlatform extends AbstractPlatform
+	implements DesktopIntegrationProvider
+{
+
+	@Parameter
+	private LinkService linkService;
+
+	@Parameter
+	private AppService appService;
 
 	@Parameter(required = false)
 	private LogService log;
@@ -94,7 +103,113 @@ public class LinuxPlatform extends AbstractPlatform {
 		}
 	}
 
+	// -- DesktopIntegrationProvider methods --
+
+	@Override
+	public boolean isWebLinksEnabled() {
+		try {
+			final DesktopFile df = getOrCreateDesktopFile();
+			return df.hasMimeType("x-scheme-handler/fiji");
+		} catch (final IOException e) {
+			if (log != null) {
+				log.debug("Failed to check web links status", e);
+			}
+			return false;
+		}
+	}
+
+	@Override
+	public boolean isWebLinksToggleable() { return true; }
+
+	@Override
+	public void setWebLinksEnabled(final boolean enable) throws IOException {
+		final DesktopFile df = getOrCreateDesktopFile();
+		
+		if (enable) {
+			df.addMimeType("x-scheme-handler/fiji");
+		} else {
+			df.removeMimeType("x-scheme-handler/fiji");
+		}
+		
+		df.save();
+	}
+
+	@Override
+	public boolean isDesktopIconPresent() {
+		final Path desktopFilePath = getDesktopFilePath();
+		return Files.exists(desktopFilePath);
+	}
+
+	@Override
+	public boolean isDesktopIconToggleable() { return true; }
+
+	@Override
+	public void setDesktopIconPresent(final boolean install) throws IOException {
+		final DesktopFile df = getOrCreateDesktopFile();
+
+		if (install) {
+			// Ensure .desktop file has all required fields
+			if (df.getName() == null) {
+				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
+				df.setName(appName);
+			}
+			if (df.getType() == null) {
+				df.setType("Application");
+			}
+			if (df.getVersion() == null) {
+				df.setVersion("1.0");
+			}
+			if (df.getExec() == null) {
+				final String appExec = System.getProperty("scijava.app.executable");
+				if (appExec == null) {
+					throw new IOException("No executable path set (scijava.app.executable property)");
+				}
+				df.setExec(appExec + " %U");
+			}
+			if (df.getGenericName() == null) {
+				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
+				df.setGenericName(appName);
+			}
+			
+			// Set optional fields if provided
+			final String appIcon = System.getProperty("scijava.app.icon");
+			if (appIcon != null && df.getIcon() == null) {
+				df.setIcon(appIcon);
+			}
+			
+			final String appDir = System.getProperty("scijava.app.directory");
+			if (appDir != null && df.getPath() == null) {
+				df.setPath(appDir);
+			}
+			
+			if (df.getCategories() == null) {
+				df.setCategories("Science;Education;");
+			}
+			
+			df.setTerminal(false);
+			
+			df.save();
+		}
+		else {
+			df.delete();
+		}
+	}
+
 	// -- Helper methods --
+
+	/**
+	 * Gets or creates a DesktopFile instance, loading it if it exists.
+	 */
+	private DesktopFile getOrCreateDesktopFile() throws IOException {
+		final Path path = getDesktopFilePath();
+		final DesktopFile df = new DesktopFile(path);
+		
+		if (df.exists()) {
+			df.load();
+		}
+		
+		return df;
+	}
 
 	/**
 	 * Creates or updates the .desktop file for this application.
@@ -104,25 +219,12 @@ public class LinuxPlatform extends AbstractPlatform {
 	 * </p>
 	 */
 	private void installDesktopFile() throws IOException {
-		// Get configuration from system properties
-		String desktopFilePath = System.getProperty("scijava.app.desktop-file");
-
-		if (desktopFilePath == null) {
-			// Default location
-			final String appName = System.getProperty("scijava.app.name", "scijava-app");
-			final String home = System.getProperty("user.home");
-			desktopFilePath = home + "/.local/share/applications/" + sanitizeFileName(appName) + ".desktop";
-
-			// Set property for other components (e.g., scijava-links)
-			System.setProperty("scijava.app.desktop-file", desktopFilePath);
-		}
-
-		final Path desktopFile = Paths.get(desktopFilePath);
+		final Path desktopFilePath = getDesktopFilePath();
 
 		// Check if file already exists and is up-to-date
-		if (Files.exists(desktopFile) && isDesktopFileUpToDate(desktopFile)) {
+		if (Files.exists(desktopFilePath) && isDesktopFileUpToDate(desktopFilePath)) {
 			if (log != null) {
-				log.debug("Desktop file is up-to-date: " + desktopFile);
+				log.debug("Desktop file is up-to-date: " + desktopFilePath);
 			}
 			return;
 		}
@@ -140,58 +242,43 @@ public class LinuxPlatform extends AbstractPlatform {
 			return;
 		}
 
-		// Create parent directory if needed
-		final Path parent = desktopFile.getParent();
-		if (parent != null && !Files.exists(parent)) {
-			Files.createDirectories(parent);
+		// Use DesktopFile to create and save
+		final DesktopFile df = new DesktopFile(desktopFilePath);
+		df.setType("Application");
+		df.setVersion("1.0");
+		df.setName(appName);
+		df.setGenericName(appName);
+		df.setExec(appExec + " %U");
+		df.setTerminal(false);
+		df.setCategories("Science;Education;");
+
+		if (appIcon != null) {
+			df.setIcon(appIcon);
 		}
 
-		// Write .desktop file
-		try (final BufferedWriter writer = Files.newBufferedWriter(desktopFile, StandardCharsets.UTF_8)) {
-			writer.write("[Desktop Entry]");
-			writer.newLine();
-			writer.write("Type=Application");
-			writer.newLine();
-			writer.write("Version=1.0");
-			writer.newLine();
-			writer.write("Name=" + appName);
-			writer.newLine();
-			writer.write("GenericName=" + appName);
-			writer.newLine();
-			writer.write("X-GNOME-FullName=" + appName);
-			writer.newLine();
-
-			if (appIcon != null) {
-				writer.write("Icon=" + appIcon);
-				writer.newLine();
-			}
-
-			writer.write("Exec=" + appExec + " %U");
-			writer.newLine();
-
-			if (appDir != null) {
-				writer.write("Path=" + appDir);
-				writer.newLine();
-			}
-
-			writer.write("Terminal=false");
-			writer.newLine();
-			writer.write("Categories=Science;Education;");
-			writer.newLine();
-
-			// MimeType field intentionally left empty
-			// scijava-links will add URI scheme handlers (x-scheme-handler/...)
-			writer.write("MimeType=");
-			writer.newLine();
+		if (appDir != null) {
+			df.setPath(appDir);
 		}
 
-		// Make file readable (but not writable) by others
-		// This is standard practice for .desktop files
-		// Files.setPosixFilePermissions can be used here if needed
+		// MimeType field intentionally left empty
+		// scijava-links will add URI scheme handlers (x-scheme-handler/...)
+
+		df.save();
 
 		if (log != null) {
-			log.info("Created desktop file: " + desktopFile);
+			log.info("Created desktop file: " + desktopFilePath);
 		}
+	}
+
+	private Path getDesktopFilePath() {
+		String desktopFilePath = System.getProperty("scijava.app.desktop-file");
+		if (desktopFilePath == null) {
+			final String appName = System.getProperty("scijava.app.name", "scijava-app");
+			final String home = System.getProperty("user.home");
+			desktopFilePath = home + "/.local/share/applications/" + sanitizeFileName(appName) + ".desktop";
+			System.setProperty("scijava.app.desktop-file", desktopFilePath);
+		}
+		return Paths.get(desktopFilePath);
 	}
 
 	/**

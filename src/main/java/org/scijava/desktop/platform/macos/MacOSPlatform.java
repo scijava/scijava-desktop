@@ -39,6 +39,7 @@ import javax.swing.JMenuBar;
 
 import org.scijava.command.CommandInfo;
 import org.scijava.command.CommandService;
+import org.scijava.desktop.DesktopIntegrationProvider;
 import org.scijava.display.event.window.WinActivatedEvent;
 import org.scijava.event.EventHandler;
 import org.scijava.event.EventService;
@@ -61,7 +62,9 @@ import org.scijava.plugin.Plugin;
  * @author Curtis Rueden
  */
 @Plugin(type = Platform.class, name = "macOS")
-public class MacOSPlatform extends AbstractPlatform {
+public class MacOSPlatform extends AbstractPlatform
+	implements DesktopIntegrationProvider
+{
 
 	/** Debugging flag to allow easy toggling of Mac screen menu bar behavior. */
 	private static final boolean SCREEN_MENU = true;
@@ -123,6 +126,38 @@ public class MacOSPlatform extends AbstractPlatform {
 		return false;
 	}
 
+	// -- DesktopIntegrationProvider methods --
+
+	@Override
+	public boolean isWebLinksEnabled() {
+		// URI schemes are declared in Info.plist, which is immutable.
+		return true;
+	}
+
+	@Override
+	public boolean isWebLinksToggleable() {
+		// URI schemes are declared in Info.plist, which is immutable.
+		return false;
+	}
+
+	@Override
+	public void setWebLinksEnabled(final boolean enable) {
+		// Note: Operation has no effect here.
+		// URI scheme registration is immutable on macOS (configured in .app bundle).
+	}
+
+	@Override
+	public boolean isDesktopIconPresent() { return false; }
+
+	@Override
+	public boolean isDesktopIconToggleable() { return false; }
+
+	@Override
+	public void setDesktopIconPresent(final boolean install) {
+		// Note: Operation has no effect here.
+		// Desktop icon installation is not supported on macOS (use Dock pinning instead).
+	}
+
 	// -- Disposable methods --
 
 	@Override
@@ -162,5 +197,4 @@ public class MacOSPlatform extends AbstractPlatform {
 		}
 		eventService.publish(new ModulesUpdatedEvent(infos));
 	}
-
 }
