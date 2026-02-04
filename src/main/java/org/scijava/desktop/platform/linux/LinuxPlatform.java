@@ -109,7 +109,7 @@ public class LinuxPlatform extends AbstractPlatform
 	public boolean isWebLinksEnabled() {
 		try {
 			final DesktopFile df = getOrCreateDesktopFile();
-			return df.hasMimeType("x-scheme-handler/fiji");
+			return df.hasMimeType("x-scheme-handler/myapp");
 		} catch (final IOException e) {
 			if (log != null) {
 				log.debug("Failed to check web links status", e);

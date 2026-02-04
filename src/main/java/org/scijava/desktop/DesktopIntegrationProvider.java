@@ -48,7 +48,7 @@ public interface DesktopIntegrationProvider {
 	boolean isWebLinksToggleable();
 
 	/**
-	 * Enables or disables URI scheme registration (e.g., {@code fiji://} links).
+	 * Enables or disables URI scheme registration (e.g., {@code myapp://} links).
 	 * <p>
 	 * This operation only works if {@link #isWebLinksToggleable()}
 	 * returns true. Otherwise, calling this method may throw

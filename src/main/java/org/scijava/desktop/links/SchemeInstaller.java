@@ -52,7 +52,7 @@ public interface SchemeInstaller {
 	/**
 	 * Installs a URI scheme handler in the operating system.
 	 *
-	 * @param scheme The URI scheme to register (e.g., "fiji", "imagej")
+	 * @param scheme The URI scheme to register (e.g., "myapp")
 	 * @param executablePath The absolute path to the executable to launch
 	 * @throws IOException if installation fails
 	 */

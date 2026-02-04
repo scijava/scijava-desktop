@@ -338,7 +338,7 @@ public class DesktopFile {
 	/**
 	 * Checks if a MimeType entry contains a specific MIME type.
 	 *
-	 * @param mimeType The MIME type to check (e.g., "x-scheme-handler/fiji")
+	 * @param mimeType The MIME type to check (e.g., "x-scheme-handler/myapp")
 	 * @return true if the MimeType field contains this type
 	 */
 	public boolean hasMimeType(final String mimeType) {
@@ -361,7 +361,7 @@ public class DesktopFile {
 	 * the new type if it's not already present.
 	 * </p>
 	 *
-	 * @param mimeType The MIME type to add (e.g., "x-scheme-handler/fiji")
+	 * @param mimeType The MIME type to add (e.g., "x-scheme-handler/myapp")
 	 */
 	public void addMimeType(final String mimeType) {
 		if (hasMimeType(mimeType)) return; // Already present

@@ -51,8 +51,8 @@ public interface LinkHandler extends HandlerPlugin<URI> {
     /**
      * Gets the URI schemes that this handler supports.
      * <p>
-     * This method is used for registering URI schemes with the operating system.
-     * Handlers should return a list of scheme names (e.g., "fiji", "imagej")
+     * This method is used for registering URI schemes with the operating
+     * system. Handlers should return a list of scheme names (e.g., "myapp")
      * that they can handle. Return an empty list if the handler does not
      * require OS-level scheme registration.
      * </p>

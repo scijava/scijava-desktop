@@ -83,7 +83,7 @@ public class WindowsPlatform extends AbstractPlatform
 	@Override
 	public boolean isWebLinksEnabled() {
 		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
-		return installer.isInstalled("fiji");
+		return installer.isInstalled("myapp");
 	}
 
 	@Override
@@ -99,10 +99,10 @@ public class WindowsPlatform extends AbstractPlatform
 		}
 
 		if (enable) {
-			installer.install("fiji", executablePath);
+			installer.install("myapp", executablePath);
 		}
 		else {
-			installer.uninstall("fiji");
+			installer.uninstall("myapp");
 		}
 	}
 
