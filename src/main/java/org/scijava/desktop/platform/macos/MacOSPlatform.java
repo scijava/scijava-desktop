@@ -160,6 +160,24 @@ public class MacOSPlatform extends AbstractPlatform
 	}
 
 	@Override
+	public boolean isFileExtensionsEnabled() {
+		// File extensions are declared in Info.plist, which is immutable.
+		return true;
+	}
+
+	@Override
+	public boolean isFileExtensionsToggleable() {
+		// File extensions are declared in Info.plist, which is immutable.
+		return false;
+	}
+
+	@Override
+	public void setFileExtensionsEnabled(final boolean enable) {
+		// Note: Operation has no effect here.
+		// File extension registration is immutable on macOS (configured in .app bundle).
+	}
+
+	@Override
 	public SchemeInstaller getSchemeInstaller() {
 		// macOS uses Info.plist for URI scheme registration (build-time only)
 		return null;

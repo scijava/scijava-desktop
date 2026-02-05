@@ -42,12 +42,18 @@ import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 
 /**
@@ -78,6 +84,9 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Parameter(required = false)
 	private LogService log;
+
+	/** Cached MIME type mapping */
+	private static Map<String, String> extensionToMime = null;
 
 	// -- Platform methods --
 
@@ -212,6 +221,77 @@ public class LinuxPlatform extends AbstractPlatform
 	}
 
 	@Override
+	public boolean isFileExtensionsEnabled() {
+		try {
+			final DesktopFile df = getOrCreateDesktopFile();
+			final Map<String, String> mimeMapping = loadMimeTypeMapping();
+
+			// Check if any file extension MIME types are in the .desktop file
+			for (final String mimeType : mimeMapping.values()) {
+				if (df.hasMimeType(mimeType)) return true;
+			}
+			return false;
+		} catch (final IOException e) {
+			if (log != null) {
+				log.debug("Failed to check file extensions status", e);
+			}
+			return false;
+		}
+	}
+
+	@Override
+	public boolean isFileExtensionsToggleable() {
+		return true;
+	}
+
+	@Override
+	public void setFileExtensionsEnabled(final boolean enable) throws IOException {
+		final Map<String, String> mimeMapping = loadMimeTypeMapping();
+		if (mimeMapping.isEmpty()) {
+			if (log != null) {
+				log.warn("No file extensions to register");
+			}
+			return;
+		}
+
+		if (enable) {
+			// Register custom MIME types for formats without standard types
+			registerCustomMimeTypes(mimeMapping);
+
+			// Add MIME types to .desktop file
+			final DesktopFile df = getOrCreateDesktopFile();
+			for (final String mimeType : mimeMapping.values()) {
+				df.addMimeType(mimeType);
+			}
+			df.save();
+
+			if (log != null) {
+				log.info("Registered " + mimeMapping.size() + " file extension MIME types");
+			}
+		} else {
+			// Remove file extension MIME types from .desktop file
+			// Keep URI scheme handlers (x-scheme-handler/...)
+			final DesktopFile df = getOrCreateDesktopFile();
+			final Set<String> uriSchemes = collectSchemes();
+
+			for (final String mimeType : mimeMapping.values()) {
+				df.removeMimeType(mimeType);
+			}
+
+			// Re-add URI scheme handlers
+			for (final String scheme : uriSchemes) {
+				df.addMimeType("x-scheme-handler/" + scheme);
+			}
+
+			df.save();
+
+			if (log != null) {
+				log.info("Unregistered file extension MIME types");
+			}
+		}
+	}
+
+	@Override
 	public SchemeInstaller getSchemeInstaller() {
 		return new LinuxSchemeInstaller(log);
 	}
@@ -334,5 +414,128 @@ public class LinuxPlatform extends AbstractPlatform
 			}
 		}
 		return schemes;
+	}
+
+	/**
+	 * Loads the file extension to MIME type mapping.
+	 */
+	private synchronized Map<String, String> loadMimeTypeMapping() throws IOException {
+		if (extensionToMime != null) return extensionToMime;
+
+		extensionToMime = new LinkedHashMap<>();
+
+		// TODO: Query IOService for formats
+
+		return extensionToMime;
+	}
+
+	/**
+	 * Registers custom MIME types for formats that don't have standard types.
+	 * Creates ~/.local/share/mime/packages/[appName].xml and runs update-mime-database.
+	 */
+	private void registerCustomMimeTypes(final Map<String, String> mimeMapping) throws IOException {
+		// Separate standard from custom MIME types
+		final Map<String, String> customTypes = new LinkedHashMap<>();
+		for (final Map.Entry<String, String> entry : mimeMapping.entrySet()) {
+			final String mimeType = entry.getValue();
+			// Custom types use application/x- prefix
+			if (mimeType.startsWith("application/x-")) {
+				customTypes.put(entry.getKey(), mimeType);
+			}
+		}
+
+		if (customTypes.isEmpty()) {
+			// No custom types to register
+			return;
+		}
+
+		// Generate MIME types XML
+		final String appName = System.getProperty("scijava.app.name", "SciJava");
+		final String mimeXml = generateMimeTypesXml(customTypes, appName);
+
+		// Write to ~/.local/share/mime/packages/<app>.xml
+		final Path mimeDir = Paths.get(System.getProperty("user.home"),
+			".local/share/mime/packages");
+		Files.createDirectories(mimeDir);
+
+		final Path mimeFile = mimeDir.resolve(sanitizeFileName(appName) + ".xml");
+		Files.writeString(mimeFile, mimeXml, StandardOpenOption.CREATE,
+			StandardOpenOption.TRUNCATE_EXISTING);
+
+		// Update MIME database
+		try {
+			final ProcessBuilder pb = new ProcessBuilder(
+				"update-mime-database",
+				Paths.get(System.getProperty("user.home"), ".local/share/mime").toString()
+			);
+			final Process process = pb.start();
+			final int exitCode = process.waitFor();
+
+			if (exitCode != 0) {
+				if (log != null) {
+					log.warn("update-mime-database exited with code " + exitCode);
+				}
+			} else if (log != null) {
+				log.info("Registered " + customTypes.size() + " custom MIME types");
+			}
+		} catch (final Exception e) {
+			if (log != null) {
+				log.error("Failed to run update-mime-database", e);
+			}
+		}
+	}
+
+	/**
+	 * Generates MIME types XML for custom file formats.
+	 */
+	private String generateMimeTypesXml(final Map<String, String> customTypes,
+		final String appName)
+	{
+		final StringBuilder xml = new StringBuilder();
+		xml.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+		xml.append("<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\n");
+
+		for (final Map.Entry<String, String> entry : customTypes.entrySet()) {
+			final String extension = entry.getKey();
+			final String mimeType = entry.getValue();
+
+			// Generate human-readable comment from MIME type
+			final String comment = generateMimeTypeComment(mimeType);
+
+			xml.append("  <mime-type type=\"").append(mimeType).append("\">\n");
+			xml.append("    <comment>").append(comment).append("</comment>\n");
+			xml.append("    <glob pattern=\"*.").append(extension).append("\"/>\n");
+			xml.append("  </mime-type>\n");
+		}
+
+		xml.append("</mime-info>\n");
+		return xml.toString();
+	}
+
+	/**
+	 * Generates a human-readable comment from a MIME type.
+	 * For example, "application/x-zeiss-czi" becomes "Zeiss CZI File".
+	 */
+	private String generateMimeTypeComment(final String mimeType) {
+		// Extract the format part (e.g., "zeiss-czi" from "application/x-zeiss-czi")
+		final String format = mimeType.substring(mimeType.lastIndexOf('/') + 1);
+
+		// Remove "x-" prefix if present
+		final String cleanFormat = format.startsWith("x-") ?
+			format.substring(2) : format;
+
+		// Convert to title case
+		final String[] parts = cleanFormat.split("-");
+		final StringBuilder comment = new StringBuilder();
+		for (final String part : parts) {
+			if (comment.length() > 0) comment.append(' ');
+			comment.append(Character.toUpperCase(part.charAt(0)));
+			if (part.length() > 1) {
+				comment.append(part.substring(1));
+			}
+		}
+		comment.append(" File");
+
+		return comment.toString();
 	}
 }

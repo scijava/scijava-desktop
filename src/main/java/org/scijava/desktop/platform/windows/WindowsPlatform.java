@@ -146,6 +146,106 @@ public class WindowsPlatform extends AbstractPlatform
 	}
 
 	@Override
+	public boolean isFileExtensionsEnabled() {
+		// Check if any extensions are registered
+		final Set<String> extensions = collectFileExtensions();
+		if (extensions.isEmpty()) return false;
+
+		// For simplicity, check if the Applications key exists
+		// A more thorough check would verify each extension
+		try {
+			final String executableName = getExecutableName();
+			if (executableName == null) return false;
+
+			final ProcessBuilder pb = new ProcessBuilder(
+				"reg", "query",
+				"HKCU\\Software\\Classes\\Applications\\" + executableName,
+				"/v", "FriendlyAppName"
+			);
+			final Process process = pb.start();
+			final int exitCode = process.waitFor();
+			return exitCode == 0;
+		} catch (final Exception e) {
+			if (log != null) {
+				log.debug("Failed to check file extensions status", e);
+			}
+			return false;
+		}
+	}
+
+	@Override
+	public boolean isFileExtensionsToggleable() {
+		return true;
+	}
+
+	@Override
+	public void setFileExtensionsEnabled(final boolean enable) throws IOException {
+		final String executablePath = System.getProperty("scijava.app.executable");
+		if (executablePath == null) {
+			throw new IOException("No executable path set (scijava.app.executable property)");
+		}
+
+		final String executableName = getExecutableName();
+		if (executableName == null) {
+			throw new IOException("Could not determine executable name");
+		}
+
+		final Set<String> extensions = collectFileExtensions();
+		if (extensions.isEmpty()) {
+			if (log != null) {
+				log.warn("No file extensions to register");
+			}
+			return;
+		}
+
+		if (enable) {
+			// Register using Applications\SupportedTypes approach
+			try {
+				// Create Applications key
+				execRegistryCommand("add",
+					"HKCU\\Software\\Classes\\Applications\\" + executableName,
+					"/f");
+
+				// Set friendly name
+				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
+				execRegistryCommand("add",
+					"HKCU\\Software\\Classes\\Applications\\" + executableName,
+					"/v", "FriendlyAppName",
+					"/d", appName,
+					"/f");
+
+				// Add each extension to SupportedTypes
+				for (final String ext : extensions) {
+					execRegistryCommand("add",
+						"HKCU\\Software\\Classes\\Applications\\" + executableName + "\\SupportedTypes",
+						"/v", "." + ext,
+						"/d", "",
+						"/f");
+				}
+
+				if (log != null) {
+					log.info("Registered " + extensions.size() + " file extensions for " + appName);
+				}
+			} catch (final Exception e) {
+				throw new IOException("Failed to register file extensions", e);
+			}
+		} else {
+			// Unregister by deleting the Applications key
+			try {
+				execRegistryCommand("delete",
+					"HKCU\\Software\\Classes\\Applications\\" + executableName,
+					"/f");
+
+				if (log != null) {
+					log.info("Unregistered file extensions");
+				}
+			} catch (final Exception e) {
+				throw new IOException("Failed to unregister file extensions", e);
+			}
+		}
+	}
+
+	@Override
 	public SchemeInstaller getSchemeInstaller() {
 		return new WindowsSchemeInstaller(log);
 	}
@@ -166,5 +266,47 @@ public class WindowsPlatform extends AbstractPlatform
 			}
 		}
 		return schemes;
+	}
+
+	/**
+	 * Collects all supported file extensions.
+	 * <p>
+	 * TODO: This should query file format plugins (e.g., SCIFIO formats, ImageJ I/O plugins).
+	 * For now, returns an empty set.
+	 * </p>
+	 */
+	private Set<String> collectFileExtensions() {
+		final Set<String> extensions = new HashSet<>();
+		// TODO: Query IOService/SCIFIOService/FormatService for supported extensions
+		// For now, return empty set
+		return extensions;
+	}
+
+	/**
+	 * Extracts the executable file name from the full path.
+	 * For example, "C:\Path\To\fiji.exe" returns "fiji.exe".
+	 */
+	private String getExecutableName() {
+		final String executablePath = System.getProperty("scijava.app.executable");
+		if (executablePath == null) return null;
+
+		final int lastSlash = Math.max(
+			executablePath.lastIndexOf('/'),
+			executablePath.lastIndexOf('\\')
+		);
+		return lastSlash >= 0 ? executablePath.substring(lastSlash + 1) : executablePath;
+	}
+
+	/**
+	 * Executes a registry command.
+	 */
+	private void execRegistryCommand(final String... args) throws IOException, InterruptedException {
+		final ProcessBuilder pb = new ProcessBuilder(args);
+		pb.command().add(0, "reg");
+		final Process process = pb.start();
+		final int exitCode = process.waitFor();
+		if (exitCode != 0) {
+			throw new IOException("Registry command failed with exit code " + exitCode);
+		}
 	}
 }

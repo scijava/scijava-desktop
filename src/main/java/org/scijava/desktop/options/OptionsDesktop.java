@@ -71,16 +71,22 @@ public class OptionsDesktop extends OptionsPlugin {
 		description = "Install application icon in the system menu")
 	private boolean desktopIconPresent;
 
+	@Parameter(label = "Enable file type associations", persist = false, validater = "validateFileExtensions", //
+		description = "Register supported file extensions with the operating system")
+	private boolean fileExtensionsEnabled;
+
 	@Override
 	public void load() {
 		webLinksEnabled = true;
 		desktopIconPresent = true;
+		fileExtensionsEnabled = true;
 		for (final Platform platform : platformService.getTargetPlatforms()) {
 			if (!(platform instanceof DesktopIntegrationProvider)) continue;
 			final DesktopIntegrationProvider dip = (DesktopIntegrationProvider) platform;
 			// If any toggleable platform setting is off, uncheck that box.
 			if (dip.isDesktopIconToggleable() && !dip.isDesktopIconPresent()) desktopIconPresent = false;
 			if (dip.isWebLinksToggleable() && !dip.isWebLinksEnabled()) webLinksEnabled = false;
+			if (dip.isFileExtensionsToggleable() && !dip.isFileExtensionsEnabled()) fileExtensionsEnabled = false;
 		}
 	}
 
@@ -92,6 +98,7 @@ public class OptionsDesktop extends OptionsPlugin {
 			try {
 				dip.setWebLinksEnabled(webLinksEnabled);
 				dip.setDesktopIconPresent(desktopIconPresent);
+				dip.setFileExtensionsEnabled(fileExtensionsEnabled);
 			}
 			catch (final IOException e) {
 				if (log != null) {
@@ -118,6 +125,14 @@ public class OptionsDesktop extends OptionsPlugin {
 			DesktopIntegrationProvider::isDesktopIconPresent,
 			desktopIconPresent,
 			"Desktop icon presence");
+	}
+
+	public void validateFileExtensions() {
+		validateSetting(
+			DesktopIntegrationProvider::isFileExtensionsToggleable,
+			DesktopIntegrationProvider::isFileExtensionsEnabled,
+			fileExtensionsEnabled,
+			"File extensions setting");
 	}
 
 	// -- Helper methods --

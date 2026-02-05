@@ -82,6 +82,29 @@ public interface DesktopIntegrationProvider {
 	 */
 	void setDesktopIconPresent(final boolean install) throws IOException;
 
+	boolean isFileExtensionsEnabled();
+
+	boolean isFileExtensionsToggleable();
+
+	/**
+	 * Enables or disables file extension associations (e.g., {@code .tif}, {@code .png}).
+	 * <p>
+	 * This operation only works if {@link #isFileExtensionsToggleable()}
+	 * returns true. Otherwise, calling this method may throw
+	 * {@link UnsupportedOperationException}.
+	 * </p>
+	 * <p>
+	 * When enabled, the application will be registered as a handler for all
+	 * supported file extensions. The application appears in "Open With" menus,
+	 * allowing users to choose it for specific file types.
+	 * </p>
+	 *
+	 * @param enable whether to enable or disable file extension associations
+	 * @throws IOException if the operation fails
+	 * @throws UnsupportedOperationException if not supported on this platform
+	 */
+	void setFileExtensionsEnabled(final boolean enable) throws IOException;
+
 	/**
 	 * Creates a SchemeInstaller for this platform.
 	 *
