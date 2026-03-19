@@ -313,9 +313,6 @@ LinuxPlatform.configure() runs when the platform is activated, ensuring the .des
 
 1. **Multi-scheme Support**: Allow platforms to handle multiple schemes independently
 2. **Scheme Validation**: Validate scheme names against RFC 3986
-3. **Repair Functionality**: "Recheck Registration" button to verify/repair installations
-4. **Better Error Reporting**: User-friendly messages for permission errors
-5. **Event System**: Publish events when registration state changes
-6. **File Extension Support**: Full implementation of file type associations
-7. **Windows Desktop Icon**: Start Menu shortcut creation
-8. **macOS App Store**: Handle sandboxed app limitations
+3. **Better Error Reporting**: User-friendly messages for permission errors
+4. **File Extension Support**: Full implementation of file type associations
+5. **Windows Desktop Icon**: Start Menu shortcut creation
