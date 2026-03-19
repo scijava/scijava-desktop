@@ -31,7 +31,6 @@ package org.scijava.desktop.links;
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
 import org.scijava.desktop.DesktopIntegrationProvider;
-import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
 import org.scijava.platform.Platform;
 import org.scijava.platform.PlatformService;

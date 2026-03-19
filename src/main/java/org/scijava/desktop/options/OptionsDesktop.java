@@ -32,7 +32,6 @@ package org.scijava.desktop.options;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.scijava.desktop.DesktopIntegrationProvider;
 import org.scijava.log.LogService;
