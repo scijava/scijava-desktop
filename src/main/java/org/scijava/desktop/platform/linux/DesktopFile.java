@@ -214,6 +214,7 @@ public class DesktopFile {
 	 */
 	public void writeTo(final Path path) throws IOException {
 		final Path oldPath = this.path;
+		// TODO: oldPath is not used; and why is this method "for backward compatibility"? Do we actually need it?
 		// Temporarily change path, save, then restore
 		try {
 			// Create a temporary instance with the new path

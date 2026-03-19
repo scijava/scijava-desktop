@@ -421,7 +421,8 @@ public class LinuxPlatform extends AbstractPlatform
 
 		extensionToMime = new LinkedHashMap<>();
 
-		// TODO: Query IOService for formats
+		// TODO: We need public API in LinkService for registering the extensions we want.
+		// TODO: Then, in fiji-links, we can use that API to plug in all the SCIFIO-supported file formats.
 
 		return extensionToMime;
 	}
