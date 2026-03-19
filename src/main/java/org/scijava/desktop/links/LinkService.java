@@ -28,12 +28,14 @@
  */
 package org.scijava.desktop.links;
 
+import java.net.URI;
+import java.util.HashSet;
+import java.util.Optional;
+import java.util.Set;
+
 import org.scijava.log.Logger;
 import org.scijava.plugin.HandlerService;
 import org.scijava.service.SciJavaService;
-
-import java.net.URI;
-import java.util.Optional;
 
 /**
  * Service interface for handling URIs.
@@ -44,6 +46,16 @@ import java.util.Optional;
 public interface LinkService extends HandlerService<URI, LinkHandler>,
 	SciJavaService
 {
+
+	/**
+	 * Gets the set of supported file extensions.
+	 */
+	public Set<String> getFileExtensions();
+
+	/**
+	 * Adds to the set of supported file extensions.
+	 */
+	public void addFileExtensions(final String... extension);
 
 	default void handle(final URI uri) {
 		// Find the highest-priority link handler plugin which matches, if any.
@@ -58,6 +70,15 @@ public interface LinkService extends HandlerService<URI, LinkHandler>,
 		}
 		// Handle the URI using the matching link handler.
 		match.get().handle(uri);
+	}
+
+	default Set<String> getSchemes() {
+		var schemes = new HashSet<String>();
+		for (final LinkHandler handler : getInstances()) {
+			final var handlerSchemes = handler.getSchemes();
+			if (handlerSchemes != null) schemes.addAll(handlerSchemes);
+		}
+		return schemes;
 	}
 
 	// -- PTService methods --

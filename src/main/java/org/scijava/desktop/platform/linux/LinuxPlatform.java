@@ -29,9 +29,9 @@
 
 package org.scijava.desktop.platform.linux;
 
+import org.scijava.Context;
 import org.scijava.app.AppService;
 import org.scijava.desktop.DesktopIntegrationProvider;
-import org.scijava.desktop.links.LinkHandler;
 import org.scijava.desktop.links.LinkService;
 import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
@@ -47,9 +47,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.HashSet;
+import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -74,7 +73,7 @@ public class LinuxPlatform extends AbstractPlatform
 {
 
 	@Parameter
-	private LinkService linkService;
+	private Context context;
 
 	@Parameter
 	private AppService appService;
@@ -120,20 +119,16 @@ public class LinuxPlatform extends AbstractPlatform
 	public boolean isWebLinksEnabled() {
 		try {
 			final DesktopFile df = getOrCreateDesktopFile();
-			final Set<String> schemes = collectSchemes();
-			if (schemes.isEmpty()) return false;
 
 			// Check if any scheme is registered
-			for (final String scheme : schemes) {
+			for (final String scheme : schemes()) {
 				if (df.hasMimeType("x-scheme-handler/" + scheme)) return true;
 			}
-			return false;
-		} catch (final IOException e) {
-			if (log != null) {
-				log.debug("Failed to check web links status", e);
-			}
-			return false;
 		}
+		catch (final IOException e) {
+			if (log != null) log.debug("Failed to check web links status", e);
+		}
+		return false;
 	}
 
 	@Override
@@ -143,14 +138,10 @@ public class LinuxPlatform extends AbstractPlatform
 	public void setWebLinksEnabled(final boolean enable) throws IOException {
 		final DesktopFile df = getOrCreateDesktopFile();
 
-		final Set<String> schemes = collectSchemes();
-		for (final String scheme : schemes) {
+		for (final String scheme : schemes()) {
 			final String mimeType = "x-scheme-handler/" + scheme;
-			if (enable) {
-				df.addMimeType(mimeType);
-			} else {
-				df.removeMimeType(mimeType);
-			}
+			if (enable) df.addMimeType(mimeType);
+			else df.removeMimeType(mimeType);
 		}
 
 		df.save();
@@ -269,14 +260,13 @@ public class LinuxPlatform extends AbstractPlatform
 			// Remove file extension MIME types from .desktop file
 			// Keep URI scheme handlers (x-scheme-handler/...)
 			final DesktopFile df = getOrCreateDesktopFile();
-			final Set<String> uriSchemes = collectSchemes();
 
 			for (final String mimeType : mimeMapping.values()) {
 				df.removeMimeType(mimeType);
 			}
 
 			// Re-add URI scheme handlers
-			for (final String scheme : uriSchemes) {
+			for (final String scheme : schemes()) {
 				df.addMimeType("x-scheme-handler/" + scheme);
 			}
 
@@ -397,20 +387,23 @@ public class LinuxPlatform extends AbstractPlatform
 
 	// -- Helper methods --
 
-	/**
-	 * Collects all URI schemes from registered LinkHandler plugins.
-	 */
-	private Set<String> collectSchemes() {
-		final Set<String> schemes = new HashSet<>();
-		if (linkService == null) return schemes;
+	private LinkService linkService() {
+		// NB: We cannot declare LinkService as an @Parameter because
+		// the PlatformService creates its plugin singletons before the
+		// LinkService has been instantiated and added to the context.
+		return context.getService(LinkService.class);
+	}
 
-		for (final LinkHandler handler : linkService.getInstances()) {
-			final List<String> handlerSchemes = handler.getSchemes();
-			if (handlerSchemes != null) {
-				schemes.addAll(handlerSchemes);
-			}
-		}
-		return schemes;
+	private Set<String> schemes() {
+		final LinkService linkService = linkService();
+		return linkService == null ?
+			Collections.emptySet() : linkService.getSchemes();
+	}
+
+	private Set<String> extensions() {
+		final LinkService linkService = linkService();
+		return linkService == null ?
+			Collections.emptySet() : linkService.getFileExtensions();
 	}
 
 	/**
@@ -421,8 +414,8 @@ public class LinuxPlatform extends AbstractPlatform
 
 		extensionToMime = new LinkedHashMap<>();
 
-		// TODO: We need public API in LinkService for registering the extensions we want.
-		// TODO: Then, in fiji-links, we can use that API to plug in all the SCIFIO-supported file formats.
+		final Set<String> extensions = extensions();
+		// TODO: How do we know the MIME type of each extension?
 
 		return extensionToMime;
 	}

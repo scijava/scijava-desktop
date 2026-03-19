@@ -31,12 +31,11 @@ package org.scijava.desktop.platform.windows;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Collections;
 import java.util.Set;
 
+import org.scijava.Context;
 import org.scijava.desktop.DesktopIntegrationProvider;
-import org.scijava.desktop.links.LinkHandler;
 import org.scijava.desktop.links.LinkService;
 import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
@@ -49,17 +48,18 @@ import org.scijava.plugin.Plugin;
  * A platform implementation for handling Windows platform issues.
  *
  * @author Johannes Schindelin
+ * @author Curtis Rueden
  */
 @Plugin(type = Platform.class, name = "Windows")
 public class WindowsPlatform extends AbstractPlatform
 	implements DesktopIntegrationProvider
 {
 
-	@Parameter(required = false)
-	private LogService log;
+	@Parameter
+	private Context context;
 
 	@Parameter(required = false)
-	private LinkService linkService;
+	private LogService log;
 
 	// -- Platform methods --
 
@@ -92,7 +92,7 @@ public class WindowsPlatform extends AbstractPlatform
 	@Override
 	public boolean isWebLinksEnabled() {
 		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
-		final Set<String> schemes = collectSchemes();
+		final Set<String> schemes = schemes();
 		if (schemes.isEmpty()) return false;
 
 		// Check if any scheme is installed
@@ -114,7 +114,7 @@ public class WindowsPlatform extends AbstractPlatform
 			throw new IOException("No executable path set (scijava.app.executable property)");
 		}
 
-		final Set<String> schemes = collectSchemes();
+		final Set<String> schemes = schemes();
 		for (final String scheme : schemes) {
 			try {
 				if (enable) {
@@ -148,7 +148,7 @@ public class WindowsPlatform extends AbstractPlatform
 	@Override
 	public boolean isFileExtensionsEnabled() {
 		// Check if any extensions are registered
-		final Set<String> extensions = collectFileExtensions();
+		final Set<String> extensions = extensions();
 		if (extensions.isEmpty()) return false;
 
 		// For simplicity, check if the Applications key exists
@@ -165,7 +165,8 @@ public class WindowsPlatform extends AbstractPlatform
 			final Process process = pb.start();
 			final int exitCode = process.waitFor();
 			return exitCode == 0;
-		} catch (final Exception e) {
+		}
+		catch (final Exception e) {
 			if (log != null) {
 				log.debug("Failed to check file extensions status", e);
 			}
@@ -190,11 +191,9 @@ public class WindowsPlatform extends AbstractPlatform
 			throw new IOException("Could not determine executable name");
 		}
 
-		final Set<String> extensions = collectFileExtensions();
+		final Set<String> extensions = extensions();
 		if (extensions.isEmpty()) {
-			if (log != null) {
-				log.warn("No file extensions to register");
-			}
+			if (log != null) log.warn("No file extensions to register");
 			return;
 		}
 
@@ -226,10 +225,12 @@ public class WindowsPlatform extends AbstractPlatform
 				if (log != null) {
 					log.info("Registered " + extensions.size() + " file extensions for " + appName);
 				}
-			} catch (final Exception e) {
+			}
+			catch (final Exception e) {
 				throw new IOException("Failed to register file extensions", e);
 			}
-		} else {
+		}
+		else {
 			// Unregister by deleting the Applications key
 			try {
 				execRegistryCommand("delete",
@@ -239,7 +240,8 @@ public class WindowsPlatform extends AbstractPlatform
 				if (log != null) {
 					log.info("Unregistered file extensions");
 				}
-			} catch (final Exception e) {
+			}
+			catch (final Exception e) {
 				throw new IOException("Failed to unregister file extensions", e);
 			}
 		}
@@ -252,39 +254,28 @@ public class WindowsPlatform extends AbstractPlatform
 
 	// -- Helper methods --
 
-	/**
-	 * Collects all URI schemes from registered LinkHandler plugins.
-	 */
-	private Set<String> collectSchemes() {
-		final Set<String> schemes = new HashSet<>();
-		if (linkService == null) return schemes;
-
-		for (final LinkHandler handler : linkService.getInstances()) {
-			final List<String> handlerSchemes = handler.getSchemes();
-			if (handlerSchemes != null) {
-				schemes.addAll(handlerSchemes);
-			}
-		}
-		return schemes;
+	private LinkService linkService() {
+		// NB: We cannot declare LinkService as an @Parameter because
+		// the PlatformService creates its plugin singletons before the
+		// LinkService has been instantiated and added to the context.
+		return context.getService(LinkService.class);
 	}
 
-	/**
-	 * Collects all supported file extensions.
-	 * <p>
-	 * TODO: This should query file format plugins (e.g., SCIFIO formats, ImageJ I/O plugins).
-	 * For now, returns an empty set.
-	 * </p>
-	 */
-	private Set<String> collectFileExtensions() {
-		final Set<String> extensions = new HashSet<>();
-		// TODO: Query IOService/SCIFIOService/FormatService for supported extensions
-		// For now, return empty set
-		return extensions;
+	private Set<String> schemes() {
+		final LinkService linkService = linkService();
+		return linkService == null ?
+			Collections.emptySet() : linkService.getSchemes();
+	}
+
+	private Set<String> extensions() {
+		final LinkService linkService = linkService();
+		return linkService == null ?
+			Collections.emptySet() : linkService.getFileExtensions();
 	}
 
 	/**
 	 * Extracts the executable file name from the full path.
-	 * For example, "C:\Path\To\fiji.exe" returns "fiji.exe".
+	 * For example, "C:\Path\To\myapp.exe" returns "myapp.exe".
 	 */
 	private String getExecutableName() {
 		final String executablePath = System.getProperty("scijava.app.executable");
