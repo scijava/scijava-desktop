@@ -7,7 +7,7 @@ This document outlines the remaining work for the scijava-desktop component.
 scijava-desktop provides unified desktop integration for SciJava applications, managing:
 1. **URI link scheme registration & handling** (Linux, Windows, macOS)
 2. **Desktop icon generation** (Linux .desktop file, Windows Start Menu - planned)
-3. **File extension registration** (planned)
+3. **File extension registration** (Linux .desktop file, Windows registry)
 
 The component uses a plugin system where Platform implementations (LinuxPlatform, WindowsPlatform, MacOSPlatform) handle platform-specific integration.
 
@@ -20,138 +20,17 @@ The component uses a plugin system where Platform implementations (LinuxPlatform
 - DesktopIntegrationProvider interface for platform capabilities
 - OptionsDesktop plugin for user preferences (Edit > Options > Desktop...)
 - Platform plugins for Linux, Windows, and macOS
-
-### ⚠️ Partially Implemented (Needs Fixes)
-- **Hardcoded scheme names**: WindowsPlatform:86,102 and LinuxPlatform:112,129 hardcode "fiji" scheme
-- **Hardcoded OS checks**: DefaultLinkService:119-132 directly checks OS name strings and instantiates platform-specific installers
+- File extension registration
 
 ### ❌ Not Yet Implemented
-- File extension registration
 - Windows Start Menu icon generation
 - First launch dialog for desktop integration opt-in
-
-## Implementation Phases
-
-### Phase 1: Fix Hardcoded Elements (High Priority)
-These fixes are required for scijava-desktop to work for applications other than Fiji.
-
-### Phase 2: File Extension Registration (High Priority)
-Core functionality for Fiji and other scientific applications.
-
-### Phase 3: Polish (Medium Priority)
-First launch dialog, Windows desktop icon, etc.
 
 ---
 
 ## Priority Work Items
 
-### 1. Remove Hardcoded Scheme Names
-
-**Problem**: Both Windows and Linux platforms hardcode the "fiji" scheme instead of querying registered LinkHandlers.
-
-**Files to modify**:
-- `src/main/java/org/scijava/desktop/platform/windows/WindowsPlatform.java` (lines 86, 102)
-- `src/main/java/org/scijava/desktop/platform/linux/LinuxPlatform.java` (lines 112, 129)
-
-**Solution**: Query LinkService for all registered schemes from LinkHandler plugins.
-
-**Example** (WindowsPlatform.java):
-```java
-@Override
-public boolean isWebLinksEnabled() {
-    final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
-    final Set<String> schemes = collectSchemes();
-    if (schemes.isEmpty()) return false;
-
-    // Check if any scheme is installed
-    for (String scheme : schemes) {
-        if (installer.isInstalled(scheme)) return true;
-    }
-    return false;
-}
-
-@Override
-public void setWebLinksEnabled(final boolean enable) throws IOException {
-    final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
-    final String executablePath = System.getProperty("scijava.app.executable");
-    if (executablePath == null) {
-        throw new IOException("No executable path set (scijava.app.executable property)");
-    }
-
-    final Set<String> schemes = collectSchemes();
-    for (String scheme : schemes) {
-        if (enable) {
-            installer.install(scheme, executablePath);
-        } else {
-            installer.uninstall(scheme);
-        }
-    }
-}
-
-private Set<String> collectSchemes() {
-    final Set<String> schemes = new HashSet<>();
-    if (linkService == null) return schemes;
-
-    for (final LinkHandler handler : linkService.getInstances()) {
-        schemes.addAll(handler.getSchemes());
-    }
-    return schemes;
-}
-```
-
-Similar changes needed for LinuxPlatform.
-
-### 2. Add getSchemeInstaller method
-
-**Goal**: Allow platforms to provide SchemeInstaller instances without hardcoding in DefaultLinkService.
-
-**New method**: `DesktopIntegrationProvider#getSchemeInstaller()`
-
-**Files to modify**:
-- WindowsPlatform.java - implement getSchemeInstaller
-- LinuxPlatform.java - implement getSchemeInstaller
-- MacOSPlatform.java - implement getSchemeInstaller (return null)
-
-### 3. Refactor DefaultLinkService#createInstaller()
-
-**Problem**: Hardcoded OS checks violate the plugin architecture.
-
-**Current code** (lines 119-132):
-```java
-private SchemeInstaller createInstaller() {
-    final String os = System.getProperty("os.name");
-    if (os == null) return null;
-
-    final String osLower = os.toLowerCase();
-    if (osLower.contains("linux")) {
-        return new LinuxSchemeInstaller(log);
-    }
-    else if (osLower.contains("win")) {
-        return new WindowsSchemeInstaller(log);
-    }
-
-    return null;
-}
-```
-
-**Refactored code**:
-```java
-@Parameter(required = false)
-private PlatformService platformService;
-
-private SchemeInstaller createInstaller() {
-    if (platformService == null) return null;
-
-    final Platform platform = platformService.platform();
-    if (platform instanceof DesktopIntegrationProvider) {
-        return ((DesktopIntegrationProvider) platform).getSchemeInstaller();
-    }
-
-    return null;
-}
-```
-
-### 4. First Launch Dialog (Optional)
+### 1. First Launch Dialog (Optional)
 
 **Goal**: Prompt user on first launch to enable desktop integration.
 
@@ -181,7 +60,7 @@ Either way: "To change these settings in the future, use Edit > Options > Deskto
 - If user selects "No", do nothing
 - Store user preference by writing to a local configuration file -- avoids showing dialog again
 
-### 5. File Extension Registration (High Priority)
+### 2. File Extension Registration (High Priority)
 
 **Scope**: Extend DesktopIntegrationProvider to support file type associations.
 
@@ -198,13 +77,13 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 **Problem**: Microscopy formats (.sdt, .czi, .nd2, .lif, etc.) lack standard MIME types.
 
-**Solution**: Register custom MIME types in `~/.local/share/mime/packages/fiji.xml`
+**Solution**: Register custom MIME types in `~/.local/share/mime/packages/{appName}.xml`
 
 **Steps**:
 1. Create extension → MIME type mapping
    - Standard formats: use existing types (`image/tiff`, `image/png`)
    - Microscopy formats: define custom types (`application/x-zeiss-czi`, `application/x-nikon-nd2`)
-2. Generate `fiji.xml` with MIME type definitions
+2. Generate `{appName}.xml` with MIME type definitions
 3. Install to `~/.local/share/mime/packages/`
 4. Run `update-mime-database ~/.local/share/mime`
 5. Add MIME types to .desktop file's `MimeType=` field
@@ -215,22 +94,22 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 **Unregistration**:
 - Remove MIME types from .desktop file (preserve URI schemes)
-- Optionally delete `~/.local/share/mime/packages/fiji.xml`
+- Optionally delete `~/.local/share/mime/packages/{appName}.xml`
 - Run `update-mime-database` again
 
 #### Windows (Simple - SupportedTypes Only)
 
-**Solution**: Use `Applications\fiji.exe\SupportedTypes` registry approach
+**Solution**: Use `Applications\{appName}.exe\SupportedTypes` registry approach
 
 **Steps**:
-1. Create `HKCU\Software\Classes\Applications\fiji.exe\SupportedTypes`
+1. Create `HKCU\Software\Classes\Applications\{appName}.exe\SupportedTypes`
 2. Add each extension as a value: `.tif = ""`
 3. All ~150-200 extensions in one registry location
 
-**Safety**: Deletion is safe - only removes our own `Applications\fiji.exe` tree
+**Safety**: Deletion is safe - only removes our own `Applications\{appName}.exe` tree
 
 **Unregistration**:
-- Delete entire `HKCU\Software\Classes\Applications\fiji.exe` key
+- Delete entire `HKCU\Software\Classes\Applications\{appName}.exe` key
 
 #### macOS (Build-Time Only)
 
@@ -240,7 +119,7 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 **No runtime action needed** - this is a packaging/build concern
 
-### 6. Windows Start Menu Icon
+### 3. Windows Start Menu Icon
 
 **Goal**: Add desktop icon support for Windows.
 
@@ -251,7 +130,7 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 
 ## Testing Checklist
 
-### Phase 1 (Hardcoded Elements)
+### Scheme Registration
 - [ ] Test URI scheme registration on Windows (registry manipulation)
 - [ ] Test URI scheme registration on Linux (.desktop file updates)
 - [ ] Test desktop icon installation on Linux
@@ -259,9 +138,8 @@ void setFileExtensionsEnabled(boolean enable) throws IOException;
 - [ ] Test OptionsDesktop UI with multiple schemes
 - [ ] Verify scheme collection from LinkHandler plugins
 - [ ] Test toggling features on/off via UI
-- [ ] Verify no hardcoded "fiji" references remain
 
-### Phase 2 (File Extensions)
+### File Extensions
 - [ ] Test Linux MIME type generation and installation
 - [ ] Verify `update-mime-database` runs successfully
 - [ ] Test file extension associations appear in file managers (Nautilus, Dolphin)
