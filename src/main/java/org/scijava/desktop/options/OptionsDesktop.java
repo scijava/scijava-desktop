@@ -144,9 +144,9 @@ public class OptionsDesktop extends OptionsPlugin {
 	}
 
 	private void validateSetting(
-			Function<DesktopIntegrationProvider, Boolean> mutable,
-			Function<DesktopIntegrationProvider, Boolean> getter,
-			boolean value, String settingDescription)
+		Function<DesktopIntegrationProvider, Boolean> mutable,
+		Function<DesktopIntegrationProvider, Boolean> getter,
+		boolean value, String settingDescription)
 	{
 		boolean toggleable = false;
 		boolean enabled = false;

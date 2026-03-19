@@ -42,35 +42,35 @@ import java.util.Optional;
  * @see LinkHandler
  */
 public interface LinkService extends HandlerService<URI, LinkHandler>,
-    SciJavaService
+	SciJavaService
 {
 
-    default void handle(final URI uri) {
-        // Find the highest-priority link handler plugin which matches, if any.
-        final Optional<LinkHandler> match = getInstances().stream() //
-            .filter(handler -> handler.supports(uri)) //
-            .findFirst();
-        if (!match.isPresent()) {
-            // No appropriate link handler plugin was found.
-            final Logger log = log();
-            if (log != null) log.debug("No handler for URI: " + uri);
-            return; // no handler for this URI
-        }
-        // Handle the URI using the matching link handler.
-        match.get().handle(uri);
-    }
+	default void handle(final URI uri) {
+		// Find the highest-priority link handler plugin which matches, if any.
+		final Optional<LinkHandler> match = getInstances().stream() //
+			.filter(handler -> handler.supports(uri)) //
+			.findFirst();
+		if (!match.isPresent()) {
+			// No appropriate link handler plugin was found.
+			final Logger log = log();
+			if (log != null) log.debug("No handler for URI: " + uri);
+			return; // no handler for this URI
+		}
+		// Handle the URI using the matching link handler.
+		match.get().handle(uri);
+	}
 
-    // -- PTService methods --
+	// -- PTService methods --
 
-    @Override
-    default Class<LinkHandler> getPluginType() {
-        return LinkHandler.class;
-    }
+	@Override
+	default Class<LinkHandler> getPluginType() {
+		return LinkHandler.class;
+	}
 
-    // -- Typed methods --
+	// -- Typed methods --
 
-    @Override
-    default Class<URI> getType() {
-        return URI.class;
-    }
+	@Override
+	default Class<URI> getType() {
+		return URI.class;
+	}
 }

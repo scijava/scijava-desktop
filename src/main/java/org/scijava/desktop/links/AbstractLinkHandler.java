@@ -33,7 +33,7 @@ import org.scijava.plugin.AbstractHandlerPlugin;
 import java.net.URI;
 
 public abstract class AbstractLinkHandler extends AbstractHandlerPlugin<URI>
-    implements LinkHandler
+	implements LinkHandler
 {
-    // NB: No implementation needed.
+	// NB: No implementation needed.
 }

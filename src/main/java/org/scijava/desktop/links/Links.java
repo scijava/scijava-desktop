@@ -38,46 +38,46 @@ import java.util.Map;
  * @author Curtis Rueden
  */
 public final class Links {
-    private Links() {
-        // NB: Prevent instantiation of utility class.
-    }
+	private Links() {
+		// NB: Prevent instantiation of utility class.
+	}
 
-    public static String path(final URI uri) {
-        final String path = uri.getPath();
-        if (path == null) return null;
-        return path.startsWith("/") ? path.substring(1) : path;
-    }
+	public static String path(final URI uri) {
+		final String path = uri.getPath();
+		if (path == null) return null;
+		return path.startsWith("/") ? path.substring(1) : path;
+	}
 
-    public static String operation(final URI uri) {
-        final String path = path(uri);
-        if (path == null) return null;
-        final int slash = path.indexOf("/");
-        return slash < 0 ? path : path.substring(0, slash);
-    }
+	public static String operation(final URI uri) {
+		final String path = path(uri);
+		if (path == null) return null;
+		final int slash = path.indexOf("/");
+		return slash < 0 ? path : path.substring(0, slash);
+	}
 
-    public static String[] pathFragments(final URI uri) {
-        final String path = path(uri);
-        if (path == null) return null;
-        return path.isEmpty() ? new String[0] : path.split("/");
-    }
+	public static String[] pathFragments(final URI uri) {
+		final String path = path(uri);
+		if (path == null) return null;
+		return path.isEmpty() ? new String[0] : path.split("/");
+	}
 
-    public static String subPath(final URI uri) {
-        final String path = path(uri);
-        if (path == null) return null;
-        final int slash = path.indexOf("/");
-        return slash < 0 ? "" : path.substring(slash + 1);
-    }
+	public static String subPath(final URI uri) {
+		final String path = path(uri);
+		if (path == null) return null;
+		final int slash = path.indexOf("/");
+		return slash < 0 ? "" : path.substring(slash + 1);
+	}
 
-    public static Map<String, String> query(final URI uri) {
-        final LinkedHashMap<String, String> map = new LinkedHashMap<>();
-        final String query = uri.getQuery();
-        final String[] tokens = query == null ? new String[0] : query.split("&");
-        for (final String token : tokens) {
-            final String[] kv = token.split("=", 2);
-            final String k = kv[0];
-            final String v = kv.length > 1 ? kv[1] : null;
-            map.put(k, v);
-        }
-        return map;
-    }
+	public static Map<String, String> query(final URI uri) {
+		final LinkedHashMap<String, String> map = new LinkedHashMap<>();
+		final String query = uri.getQuery();
+		final String[] tokens = query == null ? new String[0] : query.split("&");
+		for (final String token : tokens) {
+			final String[] kv = token.split("=", 2);
+			final String k = kv[0];
+			final String v = kv.length > 1 ? kv[1] : null;
+			map.put(k, v);
+		}
+		return map;
+	}
 }

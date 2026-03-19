@@ -41,30 +41,30 @@ import java.util.List;
  */
 public interface LinkHandler extends HandlerPlugin<URI> {
 
-    /**
-     * Handles the given URI.
-     *
-     * @param uri The URI to handle.
-     */
-    void handle(URI uri);
+	/**
+	 * Handles the given URI.
+	 *
+	 * @param uri The URI to handle.
+	 */
+	void handle(URI uri);
 
-    /**
-     * Gets the URI schemes that this handler supports.
-     * <p>
-     * This method is used for registering URI schemes with the operating
-     * system. Handlers should return a list of scheme names (e.g., "myapp")
-     * that they can handle. Return an empty list if the handler does not
-     * require OS-level scheme registration.
-     * </p>
-     *
-     * @return List of URI schemes supported by this handler
-     */
-    default List<String> getSchemes() {
-        return Collections.emptyList();
-    }
+	/**
+	 * Gets the URI schemes that this handler supports.
+	 * <p>
+	 * This method is used for registering URI schemes with the operating
+	 * system. Handlers should return a list of scheme names (e.g., "myapp")
+	 * that they can handle. Return an empty list if the handler does not
+	 * require OS-level scheme registration.
+	 * </p>
+	 *
+	 * @return List of URI schemes supported by this handler
+	 */
+	default List<String> getSchemes() {
+		return Collections.emptyList();
+	}
 
-    @Override
-    default Class<URI> getType() {
-        return URI.class;
-    }
+	@Override
+	default Class<URI> getType() {
+		return URI.class;
+	}
 }

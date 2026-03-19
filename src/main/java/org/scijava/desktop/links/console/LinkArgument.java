@@ -48,43 +48,43 @@ import java.util.LinkedList;
 @Plugin(type = ConsoleArgument.class, priority = Priority.VERY_HIGH)
 public class LinkArgument extends AbstractConsoleArgument {
 
-    @Parameter(required = false)
-    private LinkService linkService;
+	@Parameter(required = false)
+	private LinkService linkService;
 
-    // -- ConsoleArgument methods --
+	// -- ConsoleArgument methods --
 
-    @Override
-    public void handle(final LinkedList<String> args) {
-        if (linkService == null) return; // no service to handle links
-        if (args.isEmpty()) return; // no argument to check
-        final URI uri = link(args.getFirst());
-        if (uri == null) return; // not a URI
-        linkService.handle(uri);
-    }
+	@Override
+	public void handle(final LinkedList<String> args) {
+		if (linkService == null) return; // no service to handle links
+		if (args.isEmpty()) return; // no argument to check
+		final URI uri = link(args.getFirst());
+		if (uri == null) return; // not a URI
+		linkService.handle(uri);
+	}
 
-    // -- Typed methods --
+	// -- Typed methods --
 
-    @Override
-    public boolean supports(final LinkedList<String> args) {
-        return !args.isEmpty() && link(args.getFirst()) != null;
-    }
+	@Override
+	public boolean supports(final LinkedList<String> args) {
+		return !args.isEmpty() && link(args.getFirst()) != null;
+	}
 
-    /**
-     * Parses a string into a URI, or null if the string
-     * does not constitute such a link.
-     *
-     * @param s The string to parse.
-     * @return The URI, or null.
-     */
-    private URI link(final String s) {
-        try {
-            URI uri = new URI(s);
-            return uri.getScheme() == null ? null : uri;
-        }
-        catch (final URISyntaxException e) {
-            final Logger log = log();
-            if (log != null) log.debug(e);
-            return null;
-        }
-    }
+	/**
+	 * Parses a string into a URI, or null if the string
+	 * does not constitute such a link.
+	 *
+	 * @param s The string to parse.
+	 * @return The URI, or null.
+	 */
+	private URI link(final String s) {
+		try {
+			URI uri = new URI(s);
+			return uri.getScheme() == null ? null : uri;
+		}
+		catch (final URISyntaxException e) {
+			final Logger log = log();
+			if (log != null) log.debug(e);
+			return null;
+		}
+	}
 }
