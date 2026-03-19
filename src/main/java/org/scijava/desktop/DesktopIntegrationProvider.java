@@ -36,10 +36,6 @@ import org.scijava.desktop.links.SchemeInstaller;
 /**
  * Marker interface for platform implementations that provide desktop
  * integration features.
- * <p>
- * Platforms implementing this interface can be queried for desktop integration
- * capabilities via {@link #getDesktopIntegration()}.
- * </p>
  *
  * @author Curtis Rueden
  */
