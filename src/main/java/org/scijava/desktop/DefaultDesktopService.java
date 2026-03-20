@@ -26,62 +26,46 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * #L%
  */
-package org.scijava.desktop.links;
+package org.scijava.desktop;
 
-import java.net.URI;
-import java.util.HashSet;
-import java.util.Optional;
-import java.util.Set;
-
-import org.scijava.log.Logger;
-import org.scijava.plugin.HandlerService;
+import org.scijava.plugin.Plugin;
+import org.scijava.service.AbstractService;
 import org.scijava.service.SciJavaService;
+import org.scijava.service.Service;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Service interface for handling URIs.
+ * Service interface for an application's desktop-related concerns.
  *
  * @author Curtis Rueden
- * @see LinkHandler
  */
-public interface LinkService extends HandlerService<URI, LinkHandler>,
-	SciJavaService
-{
+@Plugin(type = Service.class)
+public class DefaultDesktopService extends AbstractService implements DesktopService {
 
-	default void handle(final URI uri) {
-		// Find the highest-priority link handler plugin which matches, if any.
-		final Optional<LinkHandler> match = getInstances().stream() //
-			.filter(handler -> handler.supports(uri)) //
-			.findFirst();
-		if (match.isEmpty()) {
-			// No appropriate link handler plugin was found.
-			final Logger log = log();
-			if (log != null) log.debug("No handler for URI: " + uri);
-			return; // no handler for this URI
-		}
-		// Handle the URI using the matching link handler.
-		match.get().handle(uri);
-	}
-
-	default Set<String> getSchemes() {
-		var schemes = new HashSet<String>();
-		for (final LinkHandler handler : getInstances()) {
-			final var handlerSchemes = handler.getSchemes();
-			if (handlerSchemes != null) schemes.addAll(handlerSchemes);
-		}
-		return schemes;
-	}
-
-	// -- PTService methods --
+	private final Map<String, String> fileTypes = new HashMap<>();
 
 	@Override
-	default Class<LinkHandler> getPluginType() {
-		return LinkHandler.class;
+	public void addFileType(String ext, String mimeType) {
+		fileTypes.put(ext, mimeType);
 	}
 
-	// -- Typed methods --
+	@Override
+	public void addFileTypes(String mimePrefix, String... extensions) {
+		throw new UnsupportedOperationException("Not yet implemented");
+	}
 
 	@Override
-	default Class<URI> getType() {
-		return URI.class;
+	public void addFileTypes(final Map<String, String> extToMimeType) {
+		fileTypes.putAll(extToMimeType);
+	}
+
+	/**
+	 * Gets the map of supported file types.
+	 */
+	public Map<String, String> getFileTypes() {
+		return Collections.unmodifiableMap(fileTypes);
 	}
 }

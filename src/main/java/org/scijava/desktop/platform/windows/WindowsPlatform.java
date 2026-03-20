@@ -36,6 +36,7 @@ import java.util.Set;
 
 import org.scijava.Context;
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.DesktopService;
 import org.scijava.desktop.links.LinkService;
 import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
@@ -267,10 +268,14 @@ public class WindowsPlatform extends AbstractPlatform
 			Collections.emptySet() : linkService.getSchemes();
 	}
 
+	private DesktopService desktopService() {
+		return context.getService(DesktopService.class);
+	}
+
 	private Set<String> extensions() {
-		final LinkService linkService = linkService();
-		return linkService == null ?
-			Collections.emptySet() : linkService.getFileExtensions();
+		final DesktopService desktopService = desktopService();
+		return desktopService == null ?
+			Collections.emptySet() : desktopService.getFileTypes().keySet();
 	}
 
 	/**

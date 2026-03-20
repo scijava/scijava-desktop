@@ -32,6 +32,7 @@ package org.scijava.desktop.platform.linux;
 import org.scijava.Context;
 import org.scijava.app.AppService;
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.DesktopService;
 import org.scijava.desktop.links.LinkService;
 import org.scijava.desktop.links.SchemeInstaller;
 import org.scijava.log.LogService;
@@ -400,10 +401,14 @@ public class LinuxPlatform extends AbstractPlatform
 			Collections.emptySet() : linkService.getSchemes();
 	}
 
-	private Set<String> extensions() {
-		final LinkService linkService = linkService();
-		return linkService == null ?
-			Collections.emptySet() : linkService.getFileExtensions();
+	private DesktopService desktopService() {
+		return context.getService(DesktopService.class);
+	}
+
+	private Map<String, String> fileTypes() {
+		final DesktopService desktopService = desktopService();
+		return desktopService == null ?
+			Collections.emptyMap() : desktopService.getFileTypes();
 	}
 
 	/**
@@ -414,7 +419,7 @@ public class LinuxPlatform extends AbstractPlatform
 
 		extensionToMime = new LinkedHashMap<>();
 
-		final Set<String> extensions = extensions();
+		final Map<String, String> fileTypes = fileTypes();
 		// TODO: How do we know the MIME type of each extension?
 
 		return extensionToMime;

@@ -36,6 +36,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.DesktopService;
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
 import org.scijava.log.LogService;
@@ -59,25 +60,6 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 
 	@Parameter(required = false)
 	private PlatformService platformService;
-
-	private final Set<String> extensions = new HashSet<>();
-
-	/**
-	 * Gets supported file extensions.
-	 */
-	@Override
-	public Set<String> getFileExtensions() {
-		return Collections.unmodifiableSet(extensions);
-	}
-
-	/**
-	 * Gets supported file extensions.
-	 */
-	@Override
-	public void addFileExtensions(final String... extensions) {
-		this.extensions.addAll(Arrays.asList(extensions));
-	}
-
 
 	@EventHandler
 	private void onEvent(final ContextCreatedEvent evt) {
