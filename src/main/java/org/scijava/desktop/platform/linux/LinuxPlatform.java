@@ -96,7 +96,7 @@ public class LinuxPlatform extends AbstractPlatform
 	public void configure(final PlatformService service) {
 		super.configure(service);
 
-		// Create or update .desktop file for desktop integration
+		// Create or update .desktop file for desktop integration.
 		try {
 			installDesktopFile();
 		}
@@ -121,7 +121,7 @@ public class LinuxPlatform extends AbstractPlatform
 		try {
 			final DesktopFile df = getOrCreateDesktopFile();
 
-			// Check if any scheme is registered
+			// Check if any scheme is registered.
 			for (final String scheme : schemes()) {
 				if (df.hasMimeType("x-scheme-handler/" + scheme)) return true;
 			}
@@ -162,7 +162,7 @@ public class LinuxPlatform extends AbstractPlatform
 		final DesktopFile df = getOrCreateDesktopFile();
 
 		if (install) {
-			// Ensure .desktop file has all required fields
+			// Ensure .desktop file has all required fields.
 			if (df.getName() == null) {
 				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
 				df.setName(appName);
@@ -185,7 +185,7 @@ public class LinuxPlatform extends AbstractPlatform
 				df.setGenericName(appName);
 			}
 			
-			// Set optional fields if provided
+			// Set optional fields if provided.
 			final String appIcon = System.getProperty("scijava.app.icon");
 			if (appIcon != null && df.getIcon() == null) {
 				df.setIcon(appIcon);
@@ -215,7 +215,7 @@ public class LinuxPlatform extends AbstractPlatform
 			final DesktopFile df = getOrCreateDesktopFile();
 			final Map<String, String> mimeMapping = loadMimeTypeMapping();
 
-			// Check if any file extension MIME types are in the .desktop file
+			// Check if any file extension MIME types are in the .desktop file.
 			for (final String mimeType : mimeMapping.values()) {
 				if (df.hasMimeType(mimeType)) return true;
 			}
@@ -244,10 +244,10 @@ public class LinuxPlatform extends AbstractPlatform
 		}
 
 		if (enable) {
-			// Register custom MIME types for formats without standard types
+			// Register custom MIME types for formats without standard types.
 			registerCustomMimeTypes(mimeMapping);
 
-			// Add MIME types to .desktop file
+			// Add MIME types to .desktop file.
 			final DesktopFile df = getOrCreateDesktopFile();
 			for (final String mimeType : mimeMapping.values()) {
 				df.addMimeType(mimeType);
@@ -258,15 +258,15 @@ public class LinuxPlatform extends AbstractPlatform
 				log.info("Registered " + mimeMapping.size() + " file extension MIME types");
 			}
 		} else {
-			// Remove file extension MIME types from .desktop file
-			// Keep URI scheme handlers (x-scheme-handler/...)
+			// Remove file extension MIME types from .desktop file.
+			// Keep URI scheme handlers (x-scheme-handler/...).
 			final DesktopFile df = getOrCreateDesktopFile();
 
 			for (final String mimeType : mimeMapping.values()) {
 				df.removeMimeType(mimeType);
 			}
 
-			// Re-add URI scheme handlers
+			// Re-add URI scheme handlers.
 			for (final String scheme : schemes()) {
 				df.addMimeType("x-scheme-handler/" + scheme);
 			}
@@ -389,7 +389,7 @@ public class LinuxPlatform extends AbstractPlatform
 	// -- Helper methods --
 
 	private LinkService linkService() {
-		// NB: We cannot declare LinkService as an @Parameter because
+		// NB: We cannot declare LinkService as a @Parameter because
 		// the PlatformService creates its plugin singletons before the
 		// LinkService has been instantiated and added to the context.
 		return context.getService(LinkService.class);
@@ -430,26 +430,26 @@ public class LinuxPlatform extends AbstractPlatform
 	 * Creates ~/.local/share/mime/packages/[appName].xml and runs update-mime-database.
 	 */
 	private void registerCustomMimeTypes(final Map<String, String> mimeMapping) throws IOException {
-		// Separate standard from custom MIME types
+		// Separate standard from custom MIME types.
 		final Map<String, String> customTypes = new LinkedHashMap<>();
 		for (final Map.Entry<String, String> entry : mimeMapping.entrySet()) {
 			final String mimeType = entry.getValue();
-			// Custom types use application/x- prefix
+			// Custom types use application/x- prefix.
 			if (mimeType.startsWith("application/x-")) {
 				customTypes.put(entry.getKey(), mimeType);
 			}
 		}
 
 		if (customTypes.isEmpty()) {
-			// No custom types to register
+			// No custom types to register.
 			return;
 		}
 
-		// Generate MIME types XML
+		// Generate MIME types XML.
 		final String appName = System.getProperty("scijava.app.name", "SciJava");
 		final String mimeXml = generateMimeTypesXml(customTypes, appName);
 
-		// Write to ~/.local/share/mime/packages/<app>.xml
+		// Write to ~/.local/share/mime/packages/<app>.xml.
 		final Path mimeDir = Paths.get(System.getProperty("user.home"),
 			".local/share/mime/packages");
 		Files.createDirectories(mimeDir);
@@ -458,7 +458,7 @@ public class LinuxPlatform extends AbstractPlatform
 		Files.writeString(mimeFile, mimeXml, StandardOpenOption.CREATE,
 			StandardOpenOption.TRUNCATE_EXISTING);
 
-		// Update MIME database
+		// Update MIME database.
 		try {
 			final ProcessBuilder pb = new ProcessBuilder(
 				"update-mime-database",
@@ -495,7 +495,7 @@ public class LinuxPlatform extends AbstractPlatform
 			final String extension = entry.getKey();
 			final String mimeType = entry.getValue();
 
-			// Generate human-readable comment from MIME type
+			// Generate human-readable comment from MIME type.
 			final String comment = generateMimeTypeComment(mimeType);
 
 			xml.append("  <mime-type type=\"").append(mimeType).append("\">\n");
@@ -513,14 +513,14 @@ public class LinuxPlatform extends AbstractPlatform
 	 * For example, "application/x-zeiss-czi" becomes "Zeiss CZI File".
 	 */
 	private String generateMimeTypeComment(final String mimeType) {
-		// Extract the format part (e.g., "zeiss-czi" from "application/x-zeiss-czi")
+		// Extract the format part (e.g., "zeiss-czi" from "application/x-zeiss-czi").
 		final String format = mimeType.substring(mimeType.lastIndexOf('/') + 1);
 
-		// Remove "x-" prefix if present
+		// Remove "x-" prefix if present.
 		final String cleanFormat = format.startsWith("x-") ?
 			format.substring(2) : format;
 
-		// Convert to title case
+		// Convert to title case.
 		final String[] parts = cleanFormat.split("-");
 		final StringBuilder comment = new StringBuilder();
 		for (final String part : parts) {

@@ -83,28 +83,28 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	 * </p>
 	 */
 	private void installSchemes() {
-		// Create the appropriate installer for this platform
+		// Create the appropriate installer for this platform.
 		final SchemeInstaller installer = createInstaller();
 		if (installer == null || !installer.isSupported()) {
 			if (log != null) log.debug("Scheme installation not supported on this platform");
 			return;
 		}
 
-		// Get executable path from system property
+		// Get executable path from system property.
 		final String executablePath = System.getProperty("scijava.app.executable");
 		if (executablePath == null) {
 			if (log != null) log.debug("No executable path set (scijava.app.executable property)");
 			return;
 		}
 
-		// Collect all schemes from registered handlers
+		// Collect all schemes from registered handlers.
 		final Set<String> schemes = collectSchemes();
 		if (schemes.isEmpty()) {
 			if (log != null) log.debug("No URI schemes to register");
 			return;
 		}
 
-		// Install each scheme
+		// Install each scheme.
 		for (final String scheme : schemes) {
 			try {
 				installer.install(scheme, executablePath);
@@ -126,7 +126,7 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	private SchemeInstaller createInstaller() {
 		if (platformService == null) return null;
 
-		// Find a platform that provides a SchemeInstaller
+		// Find a platform that provides a SchemeInstaller.
 		for (final Platform platform : platformService.getTargetPlatforms()) {
 			if (platform instanceof DesktopIntegrationProvider) {
 				final SchemeInstaller installer = ((DesktopIntegrationProvider) platform).getSchemeInstaller();
