@@ -56,32 +56,72 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	private final Map<String, String> fileTypes = new HashMap<>();
 
+	/**
+	 * Description of each file type extension, as registered by
+	 * {@link #addFileType} and {@link #addFileTypes}.
+	 */
+	private final Map<String, String> descriptions = new HashMap<>();
+
 	/** Cached contents of {@code mime-types.txt}, keyed by extension (no leading dot). */
 	private Map<String, String> mimeDB;
 
 	@Override
-	public void addFileType(String ext, String mimeType) {
-		fileTypes.put(ext, mimeType);
-	}
-
-	@Override
-	public void addFileTypes(String mimePrefix, String... extensions) {
+	public void addFileType(final String ext,
+		final String mimeType, final String description)
+	{
 		if (mimeDB == null) initMimeDB();
-		for (final String ext : extensions) {
-			if (ext == null || ext.isEmpty()) continue;
-			final String mimeType = mimeDB.getOrDefault(ext, mimePrefix + "/x-" + ext);
-			addFileType(ext, mimeType);
-		}
-	}
 
-	@Override
-	public void addFileTypes(Map<String, String> extToMimeType) {
-		fileTypes.putAll(extToMimeType);
+		// Resolve the MIME type as needed and if possible.
+		final String resolvedMimeType;
+		if (mimeType == null || mimeType.isEmpty()) {
+			// No MIME type was given -- try to resolve it from the file extension.
+			// If not found, mark it with a wildcard sentinel for resolution
+			// elsewhere, using a default MIME prefix of 'application'.
+			resolvedMimeType = mimeDB.getOrDefault(ext, "application/*");
+		}
+		else if (mimeType.endsWith("/*")) {
+			// A wildcard MIME type was given -- try to resolve it from the file extension.
+			// If not found, leave the wildcard sentinel as is for resolution elsewhere.
+			resolvedMimeType = mimeDB.getOrDefault(ext, mimeType);
+		}
+		else {
+			// Assume an explicit MIME type was given -- use it verbatim.
+			resolvedMimeType = mimeType;
+		}
+
+		// Save the file extension -> MIME type association.
+		fileTypes.put(ext, resolvedMimeType);
+		if (log != null) {
+			log.debug("Registered file extension '" + ext +
+				"' as MIME type '" + resolvedMimeType + "'");
+		}
+
+		// Save the file extension -> description association.
+		if (description == null) return; // No description to register.
+		if (descriptions.containsKey(ext)) {
+			if (log != null) {
+				log.debug("Ignoring description '" + description +
+					"' for file extension '" + ext +
+					"' with existing description '" + descriptions.get(ext) + "'");
+			}
+		}
+		else {
+			descriptions.put(ext, description);
+			if (log != null) {
+				log.debug("Registered description '" + description +
+					"' for file extension '" + ext + "'");
+			}
+		}
 	}
 
 	@Override
 	public Map<String, String> getFileTypes() {
 		return Collections.unmodifiableMap(fileTypes);
+	}
+
+	@Override
+	public String getDescription(final String extension) {
+		return descriptions.get(extension);
 	}
 
 	// -- Helper methods - lazy initialization --
@@ -99,14 +139,28 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 			String line;
 			while ((line = reader.readLine()) != null) {
 				if (line.startsWith("#") || line.isBlank()) continue;
-				final int tab = line.indexOf('\t');
-				if (tab < 0) {
+				final int pipe1 = line.indexOf('|');
+				if (pipe1 < 0) {
 					if (log != null) log.warn("Invalid MIME types DB line: " + line);
 					continue;
 				}
-				final String ext = line.substring(0, tab).trim();
-				final String mime = line.substring(tab + 1).trim();
+				final String ext = line.substring(0, pipe1).trim();
+				final String rest = line.substring(pipe1 + 1).trim();
+				final int pipe2 = rest.indexOf('|');
+				final String mime;
+				final String description;
+				if (pipe2 < 0) {
+					mime = rest;
+					description = null;
+				}
+				else {
+					mime = rest.substring(0, pipe2).trim();
+					description = rest.substring(pipe2 + 1).trim();
+				}
 				db.putIfAbsent(ext, mime);
+				if (description != null && !description.isEmpty()) {
+					descriptions.put(ext, description);
+				}
 			}
 		}
 		catch (final IOException e) {

@@ -49,6 +49,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -81,6 +82,9 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Parameter(required = false)
 	private LogService log;
+
+	/** Cached set of MIME types known to the system's shared-mime-info database. */
+	private Set<String> systemMimeTypes;
 
 	// -- Platform methods --
 
@@ -217,7 +221,8 @@ public class LinuxPlatform extends AbstractPlatform
 				if (df.hasMimeType(mimeType)) return true;
 			}
 			return false;
-		} catch (final IOException e) {
+		}
+		catch (final IOException e) {
 			if (log != null) {
 				log.debug("Failed to check file extensions status", e);
 			}
@@ -254,7 +259,8 @@ public class LinuxPlatform extends AbstractPlatform
 			if (log != null) {
 				log.info("Registered " + mimeMapping.size() + " file extension MIME types");
 			}
-		} else {
+		}
+		else {
 			// Remove file extension MIME types from .desktop file.
 			// Keep URI scheme handlers (x-scheme-handler/...).
 			final DesktopFile df = getOrCreateDesktopFile();
@@ -408,20 +414,57 @@ public class LinuxPlatform extends AbstractPlatform
 			Collections.emptyMap() : desktopService.getFileTypes();
 	}
 
+	// -- Helper methods - lazy initialization --
+
 	/**
-	 * Registers custom MIME types for formats that don't have standard types.
+	 * Initializes {@link #systemMimeTypes} by walking {@code /usr/share/mime/}.
+	 * <p>
+	 * The compiled shared-mime-info database is organized as
+	 * {@code /usr/share/mime/type/subtype.xml}, so each XML file path below the
+	 * root (excluding the {@code packages/} source tree) directly encodes a MIME
+	 * type. If the directory is absent or unreadable, the set is left empty and
+	 * all app-registered types will be treated as custom.
+	 * </p>
+	 */
+	private synchronized void initSystemMimeTypes() {
+		if (systemMimeTypes != null) return; // already initialized
+
+		final Set<String> types = new HashSet<>();
+		final Path mimeRoot = Paths.get("/usr/share/mime");
+		if (Files.isDirectory(mimeRoot)) {
+			try (final var stream = Files.walk(mimeRoot)) {
+				stream
+					.filter(p -> p.toString().endsWith(".xml"))
+					.filter(p -> !p.toString().contains("/packages/"))
+					.forEach(p -> {
+						final String rel = mimeRoot.relativize(p).toString();
+						// rel is e.g. "image/png.xml" -> strip ".xml" -> "image/png"
+						types.add(rel.substring(0, rel.length() - 4));
+					});
+			}
+			catch (final IOException | RuntimeException e) {
+				if (log != null) log.warn("Could not read system MIME database", e);
+			}
+		}
+		if (log != null) log.debug("Loaded " + types.size() + " system MIME types");
+		systemMimeTypes = types;
+	}
+
+	/**
+	 * Registers custom MIME types for formats not already known to the system.
 	 * Creates {@code ~/.local/share/mime/packages/[appName].xml} and runs
 	 * {@code update-mime-database}.
 	 */
 	private void registerCustomMimeTypes(final Map<String, String> mimeMapping)
 		throws IOException
 	{
-		// Separate standard from custom MIME types.
+		if (systemMimeTypes == null) initSystemMimeTypes();
+
+		// Collect only types absent from the system MIME database.
 		final Map<String, String> customTypes = new LinkedHashMap<>();
 		for (final Map.Entry<String, String> entry : mimeMapping.entrySet()) {
 			final String mimeType = entry.getValue();
-			// Custom types use application/x- prefix.
-			if (mimeType.startsWith("application/x-")) {
+			if (!systemMimeTypes.contains(mimeType)) {
 				customTypes.put(entry.getKey(), mimeType);
 			}
 		}
@@ -457,10 +500,12 @@ public class LinuxPlatform extends AbstractPlatform
 				if (log != null) {
 					log.warn("update-mime-database exited with code " + exitCode);
 				}
-			} else if (log != null) {
+			}
+			else if (log != null) {
 				log.info("Registered " + customTypes.size() + " custom MIME types");
 			}
-		} catch (final Exception e) {
+		}
+		catch (final Exception e) {
 			if (log != null) {
 				log.error("Failed to run update-mime-database", e);
 			}

@@ -28,9 +28,9 @@
  */
 package org.scijava.desktop;
 
-import org.scijava.desktop.links.LinkHandler;
 import org.scijava.service.SciJavaService;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,39 +41,83 @@ import java.util.Map;
 public interface DesktopService extends SciJavaService {
 
 	/**
-	 * Adds to the set of supported file types, looking up each extension's MIME
-	 * type from the built-in database. If an extension is not found in the
-	 * database, it falls back to {@code mimePrefix/x-ext} (e.g. passing prefix
-	 * {@code "image"} for unknown extension {@code "foo"} yields
-	 * {@code "image/x-foo"}).
-	 *
-	 * @param mimePrefix The MIME type prefix (e.g. {@code "image"},
-	 *                   {@code "application"}) used when an extension is absent
-	 *                   from the database.
-	 * @param extensions One or more file extensions to register (without leading
-	 *                   dot, e.g. {@code "tiff"}, {@code "png"}).
-	 */
-	void addFileTypes(String mimePrefix, String... extensions);
-
-	/**
-	 * Adds to the set of supported file types using an explicit mapping.
-	 *
-	 * @param extToMimeType Map from file extension (without leading dot,
-	 *                      e.g. {@code "png"}) to MIME type
-	 *                      (e.g. {@code "image/png"}).
-	 */
-	void addFileTypes(Map<String, String> extToMimeType);
-
-	/**
-	 * Adds a single file type with an explicit MIME type.
+	 * Adds a single file type.
 	 *
 	 * @param ext      File extension without leading dot (e.g. {@code "png"}).
-	 * @param mimeType MIME type (e.g. {@code "image/png"}).
+	 * @param mimeType MIME type (e.g. {@code "image/png"}), or a wildcard of
+	 *                 the form {@code "category/*"} (e.g. {@code "image/*"}) if
+	 *                 the specific type is unknown. Wildcard values are resolved
+	 *                 against the bundled MIME database by extension; if still
+	 *                 unresolved, the sentinel is preserved for platform-specific
+	 *                 code to handle at OS registration time.
 	 */
-	void addFileType(String ext, String mimeType);
+	default void addFileType(String ext, String mimeType) {
+		addFileType(ext, mimeType, null);
+	}
 
 	/**
-	 * Gets the map of supported file types.
+	 * Adds a single file type.
+	 *
+	 * @param ext      File extension without leading dot (e.g. {@code "png"}).
+	 * @param mimeType MIME type (e.g. {@code "image/png"}), or a wildcard of
+	 *                 the form {@code "category/*"} (e.g. {@code "image/*"}) if
+	 *                 the specific type is unknown. Wildcard values are resolved
+	 *                 against the bundled MIME database by extension; if still
+	 *                 unresolved, the sentinel is preserved for platform-specific
+	 *                 code to handle at OS registration time.
+	 * @param description Human-readable description of the file type
+	 *                    (e.g. {@code "Gatan Digital Micrograph image"}), used
+	 *                    as the label when registering a custom MIME type, or
+	 *                    {@code null} to synthesize one from the extension.
+	 */
+	void addFileType(String ext, String mimeType, String description);
+
+	/**
+	 * Adds a batch of file types sharing the same MIME type or wildcard.
+	 * Equivalent to calling {@link #addFileType(String, String)} for each
+	 * extension.
+	 *
+	 * @param extensions File extensions without leading dot (e.g. {@code "tiff"},
+	 *                   {@code "tif"}).
+	 * @param mimeType   MIME type or wildcard; see {@link #addFileType(String, String)}.
+	 */
+	default void addFileTypes(List<String> extensions, String mimeType) {
+		addFileTypes(extensions, mimeType, null);
+	}
+
+	/**
+	 * Adds a batch of file types sharing the same MIME type or wildcard.
+	 * Equivalent to calling {@link #addFileType(String, String, String)} for
+	 * each extension.
+	 *
+	 * @param extensions  File extensions without leading dot (e.g. {@code "tiff"},
+	 *                    {@code "tif"}).
+	 * @param mimeType    MIME type or wildcard; see {@link #addFileType(String, String, String)}.
+	 * @param description Shared description for all extensions in this batch;
+	 *                    see {@link #addFileType(String, String, String)}.
+	 */
+	default void addFileTypes(final List<String> extensions,
+							 final String mimeType, final String description)
+	{
+		for (final String ext : extensions) {
+			addFileType(ext, mimeType, description);
+		}
+	}
+
+	/**
+	 * Gets the map of supported file types (extension → -> MIME type).
+	 * <p>
+	 * Values ending in {@code "/*"} (e.g. {@code "image/*"}) are unresolved
+	 * sentinels, meaning the specific MIME type is not yet known. Callers that
+	 * write OS registrations should resolve these against the system MIME
+	 * database and synthesize a concrete type (e.g. {@code "image/x-dm3"}) if
+	 * still unresolved.
+	 * </p>
 	 */
 	Map<String, String> getFileTypes();
+
+	/**
+	 * Gets the description for a given file type extension, or null if none.
+	 */
+	String getDescription(String extension);
 }
