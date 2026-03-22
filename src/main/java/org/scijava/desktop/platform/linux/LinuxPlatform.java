@@ -82,9 +82,6 @@ public class LinuxPlatform extends AbstractPlatform
 	@Parameter(required = false)
 	private LogService log;
 
-	/** Cached MIME type mapping */
-	private static Map<String, String> extensionToMime = null;
-
 	// -- Platform methods --
 
 	@Override
@@ -213,7 +210,7 @@ public class LinuxPlatform extends AbstractPlatform
 	public boolean isFileExtensionsEnabled() {
 		try {
 			final DesktopFile df = getOrCreateDesktopFile();
-			final Map<String, String> mimeMapping = loadMimeTypeMapping();
+			final Map<String, String> mimeMapping = fileTypes();
 
 			// Check if any file extension MIME types are in the .desktop file.
 			for (final String mimeType : mimeMapping.values()) {
@@ -235,7 +232,7 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Override
 	public void setFileExtensionsEnabled(final boolean enable) throws IOException {
-		final Map<String, String> mimeMapping = loadMimeTypeMapping();
+		final Map<String, String> mimeMapping = fileTypes();
 		if (mimeMapping.isEmpty()) {
 			if (log != null) {
 				log.warn("No file extensions to register");
@@ -412,24 +409,13 @@ public class LinuxPlatform extends AbstractPlatform
 	}
 
 	/**
-	 * Loads the file extension to MIME type mapping.
-	 */
-	private synchronized Map<String, String> loadMimeTypeMapping() throws IOException {
-		if (extensionToMime != null) return extensionToMime;
-
-		extensionToMime = new LinkedHashMap<>();
-
-		final Map<String, String> fileTypes = fileTypes();
-		// TODO: How do we know the MIME type of each extension?
-
-		return extensionToMime;
-	}
-
-	/**
 	 * Registers custom MIME types for formats that don't have standard types.
-	 * Creates ~/.local/share/mime/packages/[appName].xml and runs update-mime-database.
+	 * Creates {@code ~/.local/share/mime/packages/[appName].xml} and runs
+	 * {@code update-mime-database}.
 	 */
-	private void registerCustomMimeTypes(final Map<String, String> mimeMapping) throws IOException {
+	private void registerCustomMimeTypes(final Map<String, String> mimeMapping)
+		throws IOException
+	{
 		// Separate standard from custom MIME types.
 		final Map<String, String> customTypes = new LinkedHashMap<>();
 		for (final Map.Entry<String, String> entry : mimeMapping.entrySet()) {

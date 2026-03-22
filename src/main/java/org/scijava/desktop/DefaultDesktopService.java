@@ -28,24 +28,36 @@
  */
 package org.scijava.desktop;
 
+import org.scijava.log.LogService;
+import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.service.AbstractService;
-import org.scijava.service.SciJavaService;
 import org.scijava.service.Service;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Service interface for an application's desktop-related concerns.
+ * Default implementation of {@link DesktopService}.
  *
  * @author Curtis Rueden
  */
 @Plugin(type = Service.class)
 public class DefaultDesktopService extends AbstractService implements DesktopService {
 
+	@Parameter(required = false)
+	private LogService log;
+
 	private final Map<String, String> fileTypes = new HashMap<>();
+
+	/** Cached contents of {@code mime-types.txt}, keyed by extension (no leading dot). */
+	private Map<String, String> mimeDB;
 
 	@Override
 	public void addFileType(String ext, String mimeType) {
@@ -54,18 +66,51 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	@Override
 	public void addFileTypes(String mimePrefix, String... extensions) {
-		throw new UnsupportedOperationException("Not yet implemented");
+		if (mimeDB == null) initMimeDB();
+		for (final String ext : extensions) {
+			final String mimeType = mimeDB.getOrDefault(ext, mimePrefix + "/x-" + ext);
+			addFileType(ext, mimeType);
+		}
 	}
 
 	@Override
-	public void addFileTypes(final Map<String, String> extToMimeType) {
+	public void addFileTypes(Map<String, String> extToMimeType) {
 		fileTypes.putAll(extToMimeType);
 	}
 
-	/**
-	 * Gets the map of supported file types.
-	 */
+	@Override
 	public Map<String, String> getFileTypes() {
 		return Collections.unmodifiableMap(fileTypes);
+	}
+
+	// -- Helper methods - lazy initialization --
+
+	/** Initializes {@link #mimeDB} from the built-in {@code mime-types.txt} resource. */
+	private synchronized void initMimeDB() {
+		if (mimeDB != null) return; // already initialized
+
+		final Map<String, String> db = new HashMap<>();
+		final String resource = "mime-types.txt";
+		try (final InputStream is = getClass().getResourceAsStream(resource);
+		     final BufferedReader reader = new BufferedReader(
+		         new InputStreamReader(is, StandardCharsets.UTF_8)))
+		{
+			String line;
+			while ((line = reader.readLine()) != null) {
+				if (line.startsWith("#") || line.isBlank()) continue;
+				final int tab = line.indexOf('\t');
+				if (tab < 0) {
+					if (log != null) log.warn("Invalid MIME types DB line: " + line);
+					continue;
+				}
+				final String ext = line.substring(0, tab).trim();
+				final String mime = line.substring(tab + 1).trim();
+				db.putIfAbsent(ext, mime);
+			}
+		}
+		catch (final IOException e) {
+			if (log != null) log.error("Failed to load MIME types database", e);
+		}
+		mimeDB = db;
 	}
 }
