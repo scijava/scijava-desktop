@@ -68,6 +68,7 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	public void addFileTypes(String mimePrefix, String... extensions) {
 		if (mimeDB == null) initMimeDB();
 		for (final String ext : extensions) {
+			if (ext == null || ext.isEmpty()) continue;
 			final String mimeType = mimeDB.getOrDefault(ext, mimePrefix + "/x-" + ext);
 			addFileType(ext, mimeType);
 		}
