@@ -284,7 +284,7 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Override
 	public SchemeInstaller getSchemeInstaller() {
-		return new LinuxSchemeInstaller(log);
+		return new LinuxSchemeInstaller(getDesktopFilePath(), log);
 	}
 
 	// -- Helper methods --

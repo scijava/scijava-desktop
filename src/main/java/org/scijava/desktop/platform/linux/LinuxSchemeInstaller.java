@@ -38,15 +38,13 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Linux implementation of {@link SchemeInstaller} using .desktop files.
  * <p>
- * This implementation modifies the .desktop file specified by the
- * {@code scijava.app.desktop-file} system property to add URI scheme
- * handlers via the MimeType field, then registers them using xdg-mime.
+ * This implementation modifies the application's .desktop file to add URI
+ * scheme handlers via the MimeType field, then registers them using xdg-mime.
  * </p>
  *
  * @author Curtis Rueden
@@ -55,9 +53,11 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 
 	private static final long COMMAND_TIMEOUT_SECONDS = 10;
 
+	private final Path desktopFilePath;
 	private final LogService log;
 
-	public LinuxSchemeInstaller(final LogService log) {
+	public LinuxSchemeInstaller(final Path desktopFilePath, final LogService log) {
+		this.desktopFilePath = desktopFilePath;
 		this.log = log;
 	}
 
@@ -78,24 +78,17 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 			throw new IllegalArgumentException("Scheme cannot be null or empty");
 		}
 
-		// Get desktop file path from system property
-		final String desktopFileProp = System.getProperty("scijava.app.desktop-file");
-		if (desktopFileProp == null || desktopFileProp.isEmpty()) {
-			throw new IOException("scijava.app.desktop-file property not set");
-		}
-
-		final Path desktopFile = Paths.get(desktopFileProp);
-		if (!Files.exists(desktopFile)) {
-			throw new IOException("Desktop file does not exist: " + desktopFile);
+		if (!Files.exists(desktopFilePath)) {
+			throw new IOException("Desktop file does not exist: " + desktopFilePath);
 		}
 
 		// Parse desktop file
-		final DesktopFile df = DesktopFile.parse(desktopFile);
+		final DesktopFile df = DesktopFile.parse(desktopFilePath);
 
 		// Check if scheme already registered
 		final String mimeType = "x-scheme-handler/" + scheme;
 		if (df.hasMimeType(mimeType)) {
-			if (log != null) log.debug("Scheme '" + scheme + "' already registered in: " + desktopFile);
+			if (log != null) log.debug("Scheme '" + scheme + "' already registered in: " + desktopFilePath);
 			return;
 		}
 
@@ -103,40 +96,35 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 		df.addMimeType(mimeType);
 
 		// Write back to file
-		df.writeTo(desktopFile);
+		df.writeTo(desktopFilePath);
 
 		// Register with xdg-mime
-		final String desktopFileName = desktopFile.getFileName().toString();
+		final String desktopFileName = desktopFilePath.getFileName().toString();
 		if (!executeCommand(new String[]{"xdg-mime", "default", desktopFileName, mimeType})) {
 			throw new IOException("Failed to register scheme with xdg-mime: " + scheme);
 		}
 
 		// Update desktop database
-		final Path applicationsDir = desktopFile.getParent();
+		final Path applicationsDir = desktopFilePath.getParent();
 		if (applicationsDir != null) {
 			executeCommand(new String[]{"update-desktop-database", applicationsDir.toString()});
 			// Note: update-desktop-database may fail if not installed, but this is non-critical
 		}
 
-		if (log != null) log.info("Registered URI scheme '" + scheme + "' in: " + desktopFile);
+		if (log != null) log.info("Registered URI scheme '" + scheme + "' in: " + desktopFilePath);
 	}
 
 	@Override
 	public boolean isInstalled(final String scheme) {
 		if (!isSupported()) return false;
-
-		final String desktopFileProp = System.getProperty("scijava.app.desktop-file");
-		if (desktopFileProp == null) return false;
-
-		final Path desktopFile = Paths.get(desktopFileProp);
-		if (!Files.exists(desktopFile)) return false;
+		if (!Files.exists(desktopFilePath)) return false;
 
 		try {
-			final DesktopFile df = DesktopFile.parse(desktopFile);
+			final DesktopFile df = DesktopFile.parse(desktopFilePath);
 			return df.hasMimeType("x-scheme-handler/" + scheme);
 		}
 		catch (final IOException e) {
-			if (log != null) log.debug("Failed to parse desktop file: " + desktopFile, e);
+			if (log != null) log.debug("Failed to parse desktop file: " + desktopFilePath, e);
 			return false;
 		}
 	}
@@ -145,13 +133,8 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 	public String getInstalledPath(final String scheme) {
 		if (!isInstalled(scheme)) return null;
 
-		final String desktopFileProp = System.getProperty("scijava.app.desktop-file");
-		if (desktopFileProp == null) return null;
-
-		final Path desktopFile = Paths.get(desktopFileProp);
-
 		try {
-			final DesktopFile df = DesktopFile.parse(desktopFile);
+			final DesktopFile df = DesktopFile.parse(desktopFilePath);
 			final String exec = df.get("Exec");
 			if (exec == null) return null;
 
@@ -162,7 +145,7 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 			}
 		}
 		catch (final IOException e) {
-			if (log != null) log.debug("Failed to parse desktop file: " + desktopFile, e);
+			if (log != null) log.debug("Failed to parse desktop file: " + desktopFilePath, e);
 		}
 
 		return null;
@@ -179,16 +162,13 @@ public class LinuxSchemeInstaller implements SchemeInstaller {
 			return;
 		}
 
-		final String desktopFileProp = System.getProperty("scijava.app.desktop-file");
-		final Path desktopFile = Paths.get(desktopFileProp);
-
 		// Parse and remove MIME type
-		final DesktopFile df = DesktopFile.parse(desktopFile);
+		final DesktopFile df = DesktopFile.parse(desktopFilePath);
 		df.removeMimeType("x-scheme-handler/" + scheme);
-		df.writeTo(desktopFile);
+		df.writeTo(desktopFilePath);
 
 		// Update desktop database
-		final Path applicationsDir = desktopFile.getParent();
+		final Path applicationsDir = desktopFilePath.getParent();
 		if (applicationsDir != null) {
 			executeCommand(new String[]{"update-desktop-database", applicationsDir.toString()});
 		}

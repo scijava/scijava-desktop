@@ -37,6 +37,7 @@ import org.junit.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import static org.junit.Assert.*;
 
@@ -50,13 +51,12 @@ public class LinuxSchemeInstallerTest {
 	private static final String TEST_SCHEME = "scijava-test";
 	private LinuxSchemeInstaller installer;
 	private Path tempDesktopFile;
-	private String originalProperty;
 
 	@Before
 	public void setUp() throws IOException {
-		installer = new LinuxSchemeInstaller(null);
 		// Only run tests on Linux
-		Assume.assumeTrue("Tests only run on Linux", installer.isSupported());
+		Assume.assumeTrue("Tests only run on Linux",
+			System.getProperty("os.name", "").toLowerCase().contains("linux"));
 
 		// Create temporary desktop file
 		tempDesktopFile = Files.createTempFile("test-app", ".desktop");
@@ -68,22 +68,11 @@ public class LinuxSchemeInstallerTest {
 		df.set("Exec", "/usr/bin/test-app %U");
 		df.save();
 
-		// Set system property
-		originalProperty = System.getProperty("scijava.app.desktop-file");
-		System.setProperty("scijava.app.desktop-file", tempDesktopFile.toString());
+		installer = new LinuxSchemeInstaller(tempDesktopFile, null);
 	}
 
 	@After
 	public void tearDown() throws IOException {
-		// Restore original property
-		if (originalProperty != null) {
-			System.setProperty("scijava.app.desktop-file", originalProperty);
-		}
-		else {
-			System.clearProperty("scijava.app.desktop-file");
-		}
-
-		// Clean up temp file
 		if (tempDesktopFile != null && Files.exists(tempDesktopFile)) {
 			Files.delete(tempDesktopFile);
 		}
@@ -159,12 +148,10 @@ public class LinuxSchemeInstallerTest {
 
 	@Test
 	public void testIsInstalledReturnsFalseWhenFileDoesNotExist() {
-		// Arrange
-		System.setProperty("scijava.app.desktop-file", "/nonexistent/path/app.desktop");
-
-		// Act & Assert
+		final LinuxSchemeInstaller nonExistent =
+			new LinuxSchemeInstaller(Paths.get("/nonexistent/path/app.desktop"), null);
 		assertFalse("Should return false when desktop file doesn't exist",
-			installer.isInstalled(TEST_SCHEME));
+			nonExistent.isInstalled(TEST_SCHEME));
 	}
 
 	@Test
@@ -197,12 +184,10 @@ public class LinuxSchemeInstallerTest {
 	}
 
 	@Test(expected = IOException.class)
-	public void testInstallWithoutDesktopFileProperty() throws IOException {
-		// Arrange
-		System.clearProperty("scijava.app.desktop-file");
-
-		// Act
-		installer.install(TEST_SCHEME, "/usr/bin/test-app");
+	public void testInstallWhenDesktopFileDoesNotExist() throws IOException {
+		final LinuxSchemeInstaller nonExistent =
+			new LinuxSchemeInstaller(Paths.get("/nonexistent/path/app.desktop"), null);
+		nonExistent.install(TEST_SCHEME, "/usr/bin/test-app");
 	}
 
 	@Test
