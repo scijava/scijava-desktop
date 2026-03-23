@@ -105,7 +105,7 @@ public interface DesktopService extends SciJavaService {
 	}
 
 	/**
-	 * Gets the map of supported file types (extension → -> MIME type).
+	 * Gets the map of supported file types (extension → MIME type).
 	 * <p>
 	 * Values ending in {@code "/*"} (e.g. {@code "image/*"}) are unresolved
 	 * sentinels, meaning the specific MIME type is not yet known. Callers that
