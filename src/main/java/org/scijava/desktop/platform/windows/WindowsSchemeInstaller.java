@@ -100,7 +100,7 @@ public class WindowsSchemeInstaller implements SchemeInstaller {
 			{"reg", "add", keyPath, "/v", "URL Protocol", "/f"},
 			{"reg", "add", shellPath, "/f"},
 			{"reg", "add", openPath, "/f"},
-			{"reg", "add", commandPath, "/ve", "/d", "\"" + executablePath + "\" \"%1\"", "/f"}
+			{"reg", "add", commandPath, "/ve", "/d", "\\\"" + executablePath + "\\\" \\\"%1\\\"", "/f"}
 		};
 
 		// Execute commands
