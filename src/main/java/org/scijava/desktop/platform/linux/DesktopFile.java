@@ -172,7 +172,10 @@ public class DesktopFile {
 			for (final Map.Entry<String, String> entry : entries.entrySet()) {
 				writer.write(entry.getKey());
 				writer.write('=');
-				writer.write(entry.getValue());
+				// Sort MimeType entries for readability.
+				final String value = "MimeType".equals(entry.getKey()) ?
+					sortedEntries(entry.getValue()) : entry.getValue();
+				writer.write(value);
 				writer.newLine();
 			}
 
@@ -332,6 +335,18 @@ public class DesktopFile {
 
 	public void setCategories(final String categories) {
 		set("Categories", categories);
+	}
+
+	// -- Helper methods --
+
+	/** Returns a semicolon-separated string with entries sorted. */
+	private static String sortedEntries(final String value) {
+		if (value == null || value.isEmpty()) return value;
+		return java.util.Arrays.stream(value.split(";"))
+			.map(String::trim)
+			.filter(s -> !s.isEmpty())
+			.sorted()
+			.collect(java.util.stream.Collectors.joining(";", "", ";"));
 	}
 
 	// -- MimeType handling --
