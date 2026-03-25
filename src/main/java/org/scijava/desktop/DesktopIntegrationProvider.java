@@ -102,6 +102,32 @@ public interface DesktopIntegrationProvider {
 	void setFileExtensionsEnabled(final boolean enable) throws IOException;
 
 	/**
+	 * Atomically applies all three desktop integration settings at once.
+	 * <p>
+	 * Implementations that store all three settings in a single artifact
+	 * (e.g. a Linux {@code .desktop} file) should override this method to
+	 * synthesize that artifact in one pass rather than via three independent
+	 * read-modify-write cycles.
+	 * </p>
+	 * <p>
+	 * The default implementation calls the three individual setters in order,
+	 * guarded by the corresponding {@code isXxxToggleable()} checks.
+	 * </p>
+	 *
+	 * @param webLinks     whether URI scheme handlers should be registered
+	 * @param desktopIcon  whether the application launcher entry should be present
+	 * @param fileTypes    whether file-extension associations should be registered
+	 * @throws IOException if any part of the update fails
+	 */
+	default void syncDesktopIntegration(final boolean webLinks,
+		final boolean desktopIcon, final boolean fileTypes) throws IOException
+	{
+		if (isWebLinksToggleable()) setWebLinksEnabled(webLinks);
+		if (isDesktopIconToggleable()) setDesktopIconPresent(desktopIcon);
+		if (isFileExtensionsToggleable()) setFileExtensionsEnabled(fileTypes);
+	}
+
+	/**
 	 * Creates a SchemeInstaller for this platform.
 	 *
 	 * @return a SchemeInstaller, or null if not supported on this platform

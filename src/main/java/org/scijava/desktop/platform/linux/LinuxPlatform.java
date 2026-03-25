@@ -44,6 +44,7 @@ import org.scijava.plugin.Plugin;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -86,6 +87,9 @@ public class LinuxPlatform extends AbstractPlatform
 	/** Cached set of MIME types known to the system's shared-mime-info database. */
 	private Set<String> systemMimeTypes;
 
+	/** Cached map from file extension to MIME type, from the system's globs database. */
+	private Map<String, String> systemMimeGlobs;
+
 	// -- Platform methods --
 
 	@Override
@@ -120,9 +124,8 @@ public class LinuxPlatform extends AbstractPlatform
 	@Override
 	public boolean isWebLinksEnabled() {
 		try {
-			final DesktopFile df = getOrCreateDesktopFile();
-
-			// Check if any scheme is registered.
+			final DesktopFile df = loadDesktopFile();
+			if (df == null) return false;
 			for (final String scheme : schemes()) {
 				if (df.hasMimeType("x-scheme-handler/" + scheme)) return true;
 			}
@@ -138,21 +141,20 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Override
 	public void setWebLinksEnabled(final boolean enable) throws IOException {
-		final DesktopFile df = getOrCreateDesktopFile();
-
-		for (final String scheme : schemes()) {
-			final String mimeType = "x-scheme-handler/" + scheme;
-			if (enable) df.addMimeType(mimeType);
-			else df.removeMimeType(mimeType);
-		}
-
-		df.save();
+		syncDesktopIntegration(enable, isDesktopIconPresent(), isFileExtensionsEnabled());
 	}
 
 	@Override
 	public boolean isDesktopIconPresent() {
-		final Path desktopFilePath = getDesktopFilePath();
-		return Files.exists(desktopFilePath);
+		try {
+			final DesktopFile df = loadDesktopFile();
+			// A desktop icon entry requires at minimum a Name and an Exec.
+			return df != null && df.getName() != null && df.getExec() != null;
+		}
+		catch (final IOException e) {
+			if (log != null) log.debug("Failed to check desktop icon status", e);
+			return false;
+		}
 	}
 
 	@Override
@@ -160,125 +162,92 @@ public class LinuxPlatform extends AbstractPlatform
 
 	@Override
 	public void setDesktopIconPresent(final boolean install) throws IOException {
-		final DesktopFile df = getOrCreateDesktopFile();
-
-		if (install) {
-			// Ensure .desktop file has all required fields.
-			if (df.getName() == null) {
-				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
-				df.setName(appName);
-			}
-			if (df.getType() == null) {
-				df.setType("Application");
-			}
-			if (df.getVersion() == null) {
-				df.setVersion("1.0");
-			}
-			if (df.getExec() == null) {
-				final String appExec = System.getProperty("scijava.app.executable");
-				if (appExec == null) {
-					throw new IOException("No executable path set (scijava.app.executable property)");
-				}
-				df.setExec(appExec + " %U");
-			}
-			if (df.getGenericName() == null) {
-				final String appName = System.getProperty("scijava.app.name", "SciJava Application");
-				df.setGenericName(appName);
-			}
-			
-			// Set optional fields if provided.
-			final String appIcon = System.getProperty("scijava.app.icon");
-			if (appIcon != null && df.getIcon() == null) {
-				df.setIcon(appIcon);
-			}
-			
-			final String appDir = System.getProperty("scijava.app.directory");
-			if (appDir != null && df.getPath() == null) {
-				df.setPath(appDir);
-			}
-			
-			if (df.getCategories() == null) {
-				df.setCategories("Science;Education;");
-			}
-			
-			df.setTerminal(false);
-			
-			df.save();
-		}
-		else {
-			df.delete();
-		}
+		syncDesktopIntegration(isWebLinksEnabled(), install, isFileExtensionsEnabled());
 	}
 
 	@Override
 	public boolean isFileExtensionsEnabled() {
 		try {
-			final DesktopFile df = getOrCreateDesktopFile();
-			final Map<String, String> mimeMapping = fileTypes();
-
-			// Check if any file extension MIME types are in the .desktop file.
-			for (final String mimeType : mimeMapping.values()) {
+			final DesktopFile df = loadDesktopFile();
+			if (df == null) return false;
+			for (final String mimeType : resolvedFileTypes().values()) {
 				if (df.hasMimeType(mimeType)) return true;
 			}
-			return false;
 		}
 		catch (final IOException e) {
-			if (log != null) {
-				log.debug("Failed to check file extensions status", e);
-			}
-			return false;
+			if (log != null) log.debug("Failed to check file extensions status", e);
 		}
+		return false;
 	}
 
 	@Override
-	public boolean isFileExtensionsToggleable() {
-		return true;
-	}
+	public boolean isFileExtensionsToggleable() { return true; }
 
 	@Override
 	public void setFileExtensionsEnabled(final boolean enable) throws IOException {
-		final Map<String, String> mimeMapping = fileTypes();
-		if (mimeMapping.isEmpty()) {
-			if (log != null) {
-				log.warn("No file extensions to register");
-			}
+		syncDesktopIntegration(isWebLinksEnabled(), isDesktopIconPresent(), enable);
+	}
+
+	@Override
+	public void syncDesktopIntegration(final boolean webLinks,
+		final boolean desktopIcon, final boolean fileTypes) throws IOException
+	{
+		final Path path = getDesktopFilePath();
+
+		// If nothing is enabled, remove the file entirely.
+		if (!webLinks && !desktopIcon && !fileTypes) {
+			Files.deleteIfExists(path);
 			return;
 		}
 
-		if (enable) {
-			// Register custom MIME types for formats without standard types.
-			registerCustomMimeTypes(mimeMapping);
-
-			// Add MIME types to .desktop file.
-			final DesktopFile df = getOrCreateDesktopFile();
-			for (final String mimeType : mimeMapping.values()) {
-				df.addMimeType(mimeType);
-			}
-			df.save();
-
-			if (log != null) {
-				log.info("Registered " + mimeMapping.size() + " file extension MIME types");
-			}
+		// An executable is required for any feature to work.
+		final String appExec = System.getProperty("scijava.app.executable");
+		if (appExec == null) {
+			throw new IOException(
+				"No executable path set (scijava.app.executable property)");
 		}
-		else {
-			// Remove file extension MIME types from .desktop file.
-			// Keep URI scheme handlers (x-scheme-handler/...).
-			final DesktopFile df = getOrCreateDesktopFile();
 
-			for (final String mimeType : mimeMapping.values()) {
-				df.removeMimeType(mimeType);
-			}
+		final DesktopFile df = new DesktopFile(path);
 
-			// Re-add URI scheme handlers.
+		// Exec is always written — it identifies which binary handles opens/links.
+		df.setExec(appExec + " %U");
+
+		if (desktopIcon) {
+			final String appName = System.getProperty("scijava.app.name",
+				"SciJava Application");
+			df.setType("Application");
+			df.setVersion("1.0");
+			df.setName(appName);
+			df.setGenericName(appName);
+			df.setCategories("Science;Education;");
+			df.setTerminal(false);
+			final String appIcon = System.getProperty("scijava.app.icon");
+			if (appIcon != null) df.setIcon(appIcon);
+			final String appDir = System.getProperty("scijava.app.directory");
+			if (appDir != null) df.setPath(appDir);
+		}
+
+		if (webLinks) {
 			for (final String scheme : schemes()) {
 				df.addMimeType("x-scheme-handler/" + scheme);
 			}
+		}
 
-			df.save();
-
-			if (log != null) {
-				log.info("Unregistered file extension MIME types");
+		if (fileTypes) {
+			final Map<String, String> mimeMapping = resolvedFileTypes();
+			if (!mimeMapping.isEmpty()) {
+				registerCustomMimeTypes(mimeMapping);
+				for (final String mimeType : mimeMapping.values()) {
+					df.addMimeType(mimeType);
+				}
 			}
+		}
+
+		df.save();
+
+		if (log != null) {
+			log.info("Synced desktop file: webLinks=" + webLinks +
+				", desktopIcon=" + desktopIcon + ", fileTypes=" + fileTypes);
 		}
 	}
 
@@ -290,16 +259,13 @@ public class LinuxPlatform extends AbstractPlatform
 	// -- Helper methods --
 
 	/**
-	 * Gets or creates a DesktopFile instance, loading it if it exists.
+	 * Loads and returns the desktop file if it exists, or {@code null} if not.
 	 */
-	private DesktopFile getOrCreateDesktopFile() throws IOException {
+	private DesktopFile loadDesktopFile() throws IOException {
 		final Path path = getDesktopFilePath();
+		if (!Files.exists(path)) return null;
 		final DesktopFile df = new DesktopFile(path);
-		
-		if (df.exists()) {
-			df.load();
-		}
-		
+		df.load();
 		return df;
 	}
 
@@ -451,6 +417,96 @@ public class LinuxPlatform extends AbstractPlatform
 	}
 
 	/**
+	 * Initializes {@link #systemMimeGlobs} by reading the system's globs
+	 * database at {@code /usr/share/mime/globs2} (falling back to
+	 * {@code /usr/share/mime/globs}).
+	 * <p>
+	 * The resulting map associates file extensions (without leading dot,
+	 * lower-cased) to their canonical MIME type strings, e.g. {@code "png"
+	 * → "image/png"}.
+	 * </p>
+	 */
+	private synchronized void initSystemMimeGlobs() {
+		if (systemMimeGlobs != null) return;
+
+		final Map<String, String> globs = new LinkedHashMap<>();
+		for (final String fileName : new String[]{
+			"/usr/share/mime/globs2", "/usr/share/mime/globs"})
+		{
+			final Path p = Paths.get(fileName);
+			if (!Files.exists(p)) continue;
+			try {
+				for (final String line : Files.readAllLines(p, StandardCharsets.UTF_8)) {
+					if (line.startsWith("#") || line.isBlank()) continue;
+					final String[] parts = line.split(":");
+					final String mime, glob;
+					if (parts.length >= 3) {
+						// globs2 format: weight:mime-type:glob
+						mime = parts[1];
+						glob = parts[2];
+					}
+					else if (parts.length == 2) {
+						// globs format: mime-type:glob
+						mime = parts[0];
+						glob = parts[1];
+					}
+					else continue;
+					if (glob.startsWith("*.")) {
+						globs.putIfAbsent(glob.substring(2).toLowerCase(), mime);
+					}
+				}
+				break; // loaded successfully; prefer globs2 over globs
+			}
+			catch (final IOException e) {
+				if (log != null) log.warn("Failed to read " + fileName, e);
+			}
+		}
+		if (log != null) log.debug("Loaded " + globs.size() + " system MIME globs");
+		systemMimeGlobs = globs;
+	}
+
+	/**
+	 * Resolves a wildcard MIME sentinel (e.g. {@code "image/*"}) to a concrete
+	 * MIME type for the given file extension.
+	 * <p>
+	 * Resolution order:
+	 * </p>
+	 * <ol>
+	 * <li>If the system's globs database maps {@code ext} to a type whose
+	 *   category matches the wildcard prefix (e.g. {@code "image/"}), that
+	 *   system type is returned.</li>
+	 * <li>Otherwise a synthetic type is returned: {@code prefix/x-sanitized-ext}
+	 *   (e.g. {@code "image/x-m71"}).</li>
+	 * </ol>
+	 */
+	private String resolveWildcard(final String ext, final String wildcardMime) {
+		if (systemMimeGlobs == null) initSystemMimeGlobs();
+		final String prefix = wildcardMime.substring(0, wildcardMime.length() - 2);
+		final String systemType = systemMimeGlobs.get(ext.toLowerCase());
+		if (systemType != null && systemType.startsWith(prefix + "/")) {
+			return systemType;
+		}
+		final String sanitized = ext.toLowerCase().replaceAll("[^a-z0-9]", "-");
+		return prefix + "/x-" + sanitized;
+	}
+
+	/**
+	 * Returns the file types map from {@link DesktopService} with wildcard
+	 * sentinel values (e.g. {@code "image/*"}) resolved to concrete MIME types
+	 * via {@link #resolveWildcard}.
+	 */
+	private Map<String, String> resolvedFileTypes() {
+		final Map<String, String> raw = fileTypes();
+		final Map<String, String> resolved = new LinkedHashMap<>();
+		for (final Map.Entry<String, String> entry : raw.entrySet()) {
+			final String ext = entry.getKey();
+			final String mime = entry.getValue();
+			resolved.put(ext, mime.endsWith("/*") ? resolveWildcard(ext, mime) : mime);
+		}
+		return resolved;
+	}
+
+	/**
 	 * Registers custom MIME types for formats not already known to the system.
 	 * Creates {@code ~/.local/share/mime/packages/[appName].xml} and runs
 	 * {@code update-mime-database}.
@@ -555,6 +611,7 @@ public class LinuxPlatform extends AbstractPlatform
 		final String[] parts = cleanFormat.split("-");
 		final StringBuilder comment = new StringBuilder();
 		for (final String part : parts) {
+			if (part.isEmpty()) continue;
 			if (comment.length() > 0) comment.append(' ');
 			comment.append(Character.toUpperCase(part.charAt(0)));
 			if (part.length() > 1) {

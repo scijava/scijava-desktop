@@ -29,7 +29,7 @@
 
 package org.scijava.desktop.options;
 
-import java.util.concurrent.Callable;
+import java.io.IOException;
 import java.util.stream.Stream;
 
 import org.scijava.ItemVisibility;
@@ -99,21 +99,22 @@ public class OptionsDesktop extends OptionsPlugin {
 	@Override
 	public void run() {
 		desktopPlatforms().forEach(p -> {
-			if (p.isWebLinksToggleable()) {
-				final Boolean enabled = getInputValue(webLinksItem);
-				toggle(() -> { p.setWebLinksEnabled(enabled); return null; },
-					enabled ? "enabling web links" : "disabling web links");
+			// Resolve each feature's desired state: use the checkbox value
+			// if toggleable, otherwise preserve the current platform state.
+			final boolean webLinks = p.isWebLinksToggleable()
+				? Boolean.TRUE.equals(getInputValue(webLinksItem))
+				: p.isWebLinksEnabled();
+			final boolean desktopIcon = p.isDesktopIconToggleable()
+				? Boolean.TRUE.equals(getInputValue(desktopIconItem))
+				: p.isDesktopIconPresent();
+			final boolean fileTypes = p.isFileExtensionsToggleable()
+				? Boolean.TRUE.equals(getInputValue(fileTypesItem))
+				: p.isFileExtensionsEnabled();
+			try {
+				p.syncDesktopIntegration(webLinks, desktopIcon, fileTypes);
 			}
-			if (p.isDesktopIconToggleable()) {
-				final Boolean enabled = getInputValue(desktopIconItem);
-				toggle(() -> { p.setDesktopIconPresent(enabled); return null; },
-					enabled ? "adding desktop icon" : "removing desktop icon");
-			}
-			if (p.isFileExtensionsToggleable()) {
-				final Boolean enabled = getInputValue(fileTypesItem);
-				toggle(() -> { p.setFileExtensionsEnabled(enabled); return null; },
-					enabled ? "enabling file type associations" :
-						"removing file type associations");
+			catch (final IOException e) {
+				if (log != null) log.error("Error performing desktop integration", e);
 			}
 		});
 		super.run();
@@ -152,15 +153,6 @@ public class OptionsDesktop extends OptionsPlugin {
 	private Boolean getInputValue(final ModuleItem<?> item) {
 		if (item.getType() != boolean.class) return null;
 		return (Boolean) getInput(item.getName());
-	}
-
-	private void toggle(final Callable<?> toggleAction, final String errorMessage) {
-		try {
-			toggleAction.call();
-		}
-		catch (final Exception e) {
-			if (log != null) log.error("Error " + errorMessage, e);
-		}
 	}
 
 	private boolean isDesktopIconToggleable() {
