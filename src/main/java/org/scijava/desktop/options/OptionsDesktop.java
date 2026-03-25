@@ -29,24 +29,23 @@
 
 package org.scijava.desktop.options;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.function.Function;
+import java.util.concurrent.Callable;
+import java.util.stream.Stream;
 
+import org.scijava.ItemVisibility;
 import org.scijava.desktop.DesktopIntegrationProvider;
 import org.scijava.log.LogService;
+import org.scijava.module.ModuleItem;
+import org.scijava.module.MutableModuleItem;
 import org.scijava.options.OptionsPlugin;
-import org.scijava.platform.Platform;
 import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
-import org.scijava.plugin.PluginInfo;
-import org.scijava.plugin.SciJavaPlugin;
 
 /**
  * Options plugin for managing desktop integration features.
  * <p>
- * Provides a UI for enabling/disabling web links (URI schemes) and
+ * Provides controls for enabling/disabling web links (URI schemes) and
  * desktop icons. Settings are applied directly to the OS (not persisted
  * to preferences), keeping the UI in sync with actual system state.
  * </p>
@@ -62,104 +61,135 @@ public class OptionsDesktop extends OptionsPlugin {
 	@Parameter(required = false)
 	private LogService log;
 
-	@Parameter(label = "Enable web links", persist = false, validater = "validateWebLinks", //
-		description = "Allow handling of URI link schemes from web browsers")
-	private boolean webLinksEnabled;
-
-	@Parameter(label = "Add desktop icon", persist = false, validater = "validateDesktopIcon", //
-		description = "Install application icon in the system menu")
-	private boolean desktopIconPresent;
-
-	@Parameter(label = "Enable file type associations", persist = false, validater = "validateFileExtensions", //
-		description = "Register supported file extensions with the operating system")
-	private boolean fileExtensionsEnabled;
+	private MutableModuleItem<?> webLinksItem;
+	private MutableModuleItem<?> desktopIconItem;
+	private MutableModuleItem<?> fileTypesItem;
 
 	@Override
-	public void load() {
-		webLinksEnabled = true;
-		desktopIconPresent = true;
-		fileExtensionsEnabled = true;
-		for (final Platform platform : platformService.getTargetPlatforms()) {
-			if (!(platform instanceof DesktopIntegrationProvider)) continue;
-			final DesktopIntegrationProvider dip = (DesktopIntegrationProvider) platform;
-			// If any toggleable platform setting is off, uncheck that box.
-			if (dip.isDesktopIconToggleable() && !dip.isDesktopIconPresent()) desktopIconPresent = false;
-			if (dip.isWebLinksToggleable() && !dip.isWebLinksEnabled()) webLinksEnabled = false;
-			if (dip.isFileExtensionsToggleable() && !dip.isFileExtensionsEnabled()) fileExtensionsEnabled = false;
+	public void initialize() {
+		// Create module inputs on first initialization.
+		if (webLinksItem == null) {
+			webLinksItem = createInput("webLinksEnabled",
+				"Enable web links",
+				"Allow handling of URI link schemes from web browsers",
+				"Web links always enabled", "Web links always disabled",
+				isWebLinksToggleable(), isWebLinksEnabled());
 		}
+		if (desktopIconItem == null) {
+			desktopIconItem = createInput("desktopIconPresent",
+				"Add desktop icon",
+				"Install application icon in the system menu",
+				"Icon always present", "Icon installation not implemented",
+				isDesktopIconToggleable(), isDesktopIconPresent());
+		}
+		if (fileTypesItem == null) {
+			fileTypesItem = createInput("fileTypesEnabled",
+				"Enable file type associations",
+				"Register supported file extensions with the operating system",
+				"File types always handled", "File type registration not supported",
+				isFileExtensionsToggleable(), isFileExtensionsEnabled());
+		}
+
+		// Set module inputs to match current desktop integration values.
+		setInputValue(webLinksItem, isWebLinksEnabled());
+		setInputValue(desktopIconItem, isDesktopIconPresent());
+		setInputValue(fileTypesItem, isFileExtensionsEnabled());
 	}
 
 	@Override
 	public void run() {
-		for (final Platform platform : platformService.getTargetPlatforms()) {
-			if (!(platform instanceof DesktopIntegrationProvider)) continue;
-			final DesktopIntegrationProvider dip = (DesktopIntegrationProvider) platform;
-			try {
-				dip.setWebLinksEnabled(webLinksEnabled);
-				dip.setDesktopIconPresent(desktopIconPresent);
-				dip.setFileExtensionsEnabled(fileExtensionsEnabled);
+		desktopPlatforms().forEach(p -> {
+			if (p.isWebLinksToggleable()) {
+				final Boolean enabled = getInputValue(webLinksItem);
+				toggle(() -> { p.setWebLinksEnabled(enabled); return null; },
+					enabled ? "enabling web links" : "disabling web links");
 			}
-			catch (final IOException e) {
-				if (log != null) {
-					log.error("Error applying desktop integration settings", e);
-				}
+			if (p.isDesktopIconToggleable()) {
+				final Boolean enabled = getInputValue(desktopIconItem);
+				toggle(() -> { p.setDesktopIconPresent(enabled); return null; },
+					enabled ? "adding desktop icon" : "removing desktop icon");
 			}
-		}
+			if (p.isFileExtensionsToggleable()) {
+				final Boolean enabled = getInputValue(fileTypesItem);
+				toggle(() -> { p.setFileExtensionsEnabled(enabled); return null; },
+					enabled ? "enabling file type associations" :
+						"removing file type associations");
+			}
+		});
 		super.run();
-	}
-
-	// -- Validators --
-
-	public void validateWebLinks() {
-		validateSetting(
-			DesktopIntegrationProvider::isWebLinksToggleable,
-			DesktopIntegrationProvider::isWebLinksEnabled,
-			webLinksEnabled,
-			"Web links setting");
-	}
-
-	public void validateDesktopIcon() {
-		validateSetting(
-			DesktopIntegrationProvider::isDesktopIconToggleable,
-			DesktopIntegrationProvider::isDesktopIconPresent,
-			desktopIconPresent,
-			"Desktop icon presence");
-	}
-
-	public void validateFileExtensions() {
-		validateSetting(
-			DesktopIntegrationProvider::isFileExtensionsToggleable,
-			DesktopIntegrationProvider::isFileExtensionsEnabled,
-			fileExtensionsEnabled,
-			"File extensions setting");
 	}
 
 	// -- Helper methods --
 
-	private String name(Platform platform) {
-		final List<PluginInfo<SciJavaPlugin>> infos =
-			pluginService.getPluginsOfClass(platform.getClass());
-		return infos.isEmpty() ? null : infos.get(0).getName();
+	private MutableModuleItem<?> createInput(final String name,
+		final String label, final String description,
+		final String alwaysOnMessage, final String alwaysOffMessage,
+		final boolean toggleable, final boolean enabled)
+	{
+		final MutableModuleItem<?> item;
+		if (toggleable) {
+			item = addInput(name, boolean.class);
+			item.setLabel(label);
+		}
+		else {
+			item = addInput(name, String.class);
+			item.setVisibility(ItemVisibility.MESSAGE);
+			item.setRequired(false);
+			item.setLabel(enabled ?
+				alwaysOnMessage + " for this platform ✅" :
+				alwaysOffMessage + " for this platform ❌");
+		}
+		item.setPersisted(false);
+		item.setDescription(description);
+		return item;
 	}
 
-	private void validateSetting(
-		Function<DesktopIntegrationProvider, Boolean> mutable,
-		Function<DesktopIntegrationProvider, Boolean> getter,
-		boolean value, String settingDescription)
-	{
-		boolean toggleable = false;
-		boolean enabled = false;
-		Platform strictPlatform = null;
-		for (final Platform platform : platformService.getTargetPlatforms()) {
-			if (!(platform instanceof DesktopIntegrationProvider)) continue;
-			final DesktopIntegrationProvider dip = (DesktopIntegrationProvider) platform;
-			if (mutable.apply(dip)) toggleable = true;
-			else if (strictPlatform == null) strictPlatform = platform;
-			if (getter.apply(dip)) enabled = true;
+	private void setInputValue(final ModuleItem<?> item, boolean value) {
+		if (item.getType() != boolean.class) return;
+		setInput(item.getName(), value);
+	}
+
+	private Boolean getInputValue(final ModuleItem<?> item) {
+		if (item.getType() != boolean.class) return null;
+		return (Boolean) getInput(item.getName());
+	}
+
+	private void toggle(final Callable<?> toggleAction, final String errorMessage) {
+		try {
+			toggleAction.call();
 		}
-		if (!toggleable && enabled != value) {
-			final String platformName = strictPlatform == null ? "this platform" : name(strictPlatform);
-			throw new IllegalArgumentException(settingDescription + " cannot be changed on " + platformName + ".");
+		catch (final Exception e) {
+			if (log != null) log.error("Error " + errorMessage, e);
 		}
+	}
+
+	private boolean isDesktopIconToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isDesktopIconToggleable());
+	}
+
+	private boolean isDesktopIconPresent() {
+		return desktopPlatforms().allMatch(p -> p.isDesktopIconPresent());
+	}
+
+	private boolean isWebLinksToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isWebLinksToggleable());
+	}
+
+	private boolean isWebLinksEnabled() {
+		return desktopPlatforms().allMatch(p -> p.isWebLinksEnabled());
+	}
+
+	private boolean isFileExtensionsToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isFileExtensionsToggleable());
+	}
+
+	private boolean isFileExtensionsEnabled() {
+		return desktopPlatforms().allMatch(p -> p.isFileExtensionsEnabled());
+	}
+
+	private Stream<DesktopIntegrationProvider> desktopPlatforms() {
+		return platformService.getTargetPlatforms().stream() //
+			.filter(p -> p instanceof DesktopIntegrationProvider) //
+			.map(p -> (DesktopIntegrationProvider) p);
 	}
 }
