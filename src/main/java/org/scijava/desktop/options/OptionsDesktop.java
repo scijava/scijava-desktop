@@ -29,16 +29,12 @@
 
 package org.scijava.desktop.options;
 
-import java.io.IOException;
-import java.util.stream.Stream;
-
 import org.scijava.ItemVisibility;
-import org.scijava.desktop.DesktopIntegrationProvider;
+import org.scijava.desktop.DesktopService;
 import org.scijava.log.LogService;
 import org.scijava.module.ModuleItem;
 import org.scijava.module.MutableModuleItem;
 import org.scijava.options.OptionsPlugin;
-import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
@@ -56,7 +52,7 @@ import org.scijava.plugin.Plugin;
 public class OptionsDesktop extends OptionsPlugin {
 
 	@Parameter
-	private PlatformService platformService;
+	private DesktopService desktopService;
 
 	@Parameter(required = false)
 	private LogService log;
@@ -73,50 +69,33 @@ public class OptionsDesktop extends OptionsPlugin {
 				"Enable web links",
 				"Allow handling of URI link schemes from web browsers",
 				"Web links always enabled", "Web links always disabled",
-				isWebLinksToggleable(), isWebLinksEnabled());
+				desktopService.isWebLinksToggleable(),
+				desktopService.isWebLinksEnabled());
 		}
 		if (desktopIconItem == null) {
 			desktopIconItem = createInput("desktopIconPresent",
 				"Add desktop icon",
 				"Install application icon in the system menu",
 				"Icon always present", "Icon installation not implemented",
-				isDesktopIconToggleable(), isDesktopIconPresent());
+				desktopService.isDesktopIconToggleable(),
+				desktopService.isDesktopIconPresent());
 		}
 		if (fileTypesItem == null) {
 			fileTypesItem = createInput("fileTypesEnabled",
 				"Enable file type associations",
 				"Register supported file extensions with the operating system",
 				"File types always handled", "File type registration not supported",
-				isFileExtensionsToggleable(), isFileExtensionsEnabled());
+				desktopService.isFileExtensionsToggleable(),
+				desktopService.isFileExtensionsEnabled());
 		}
-
-		// Set module inputs to match current desktop integration values.
-		setInputValue(webLinksItem, isWebLinksEnabled());
-		setInputValue(desktopIconItem, isDesktopIconPresent());
-		setInputValue(fileTypesItem, isFileExtensionsEnabled());
 	}
 
 	@Override
 	public void run() {
-		desktopPlatforms().forEach(p -> {
-			// Resolve each feature's desired state: use the checkbox value
-			// if toggleable, otherwise preserve the current platform state.
-			final boolean webLinks = p.isWebLinksToggleable()
-				? Boolean.TRUE.equals(getInputValue(webLinksItem))
-				: p.isWebLinksEnabled();
-			final boolean desktopIcon = p.isDesktopIconToggleable()
-				? Boolean.TRUE.equals(getInputValue(desktopIconItem))
-				: p.isDesktopIconPresent();
-			final boolean fileTypes = p.isFileExtensionsToggleable()
-				? Boolean.TRUE.equals(getInputValue(fileTypesItem))
-				: p.isFileExtensionsEnabled();
-			try {
-				p.syncDesktopIntegration(webLinks, desktopIcon, fileTypes);
-			}
-			catch (final IOException e) {
-				if (log != null) log.error("Error performing desktop integration", e);
-			}
-		});
+		final boolean webLinks = Boolean.TRUE.equals(getInputValue(webLinksItem));
+		final boolean desktopIcon = Boolean.TRUE.equals(getInputValue(desktopIconItem));
+		final boolean fileTypes = Boolean.TRUE.equals(getInputValue(fileTypesItem));
+		desktopService.syncDesktopIntegration(webLinks, desktopIcon, fileTypes);
 		super.run();
 	}
 
@@ -131,6 +110,7 @@ public class OptionsDesktop extends OptionsPlugin {
 		if (toggleable) {
 			item = addInput(name, boolean.class);
 			item.setLabel(label);
+			setInput(name, enabled);
 		}
 		else {
 			item = addInput(name, String.class);
@@ -145,43 +125,8 @@ public class OptionsDesktop extends OptionsPlugin {
 		return item;
 	}
 
-	private void setInputValue(final ModuleItem<?> item, boolean value) {
-		if (item.getType() != boolean.class) return;
-		setInput(item.getName(), value);
-	}
-
 	private Boolean getInputValue(final ModuleItem<?> item) {
-		if (item.getType() != boolean.class) return null;
-		return (Boolean) getInput(item.getName());
-	}
-
-	private boolean isDesktopIconToggleable() {
-		return desktopPlatforms().anyMatch(p -> p.isDesktopIconToggleable());
-	}
-
-	private boolean isDesktopIconPresent() {
-		return desktopPlatforms().allMatch(p -> p.isDesktopIconPresent());
-	}
-
-	private boolean isWebLinksToggleable() {
-		return desktopPlatforms().anyMatch(p -> p.isWebLinksToggleable());
-	}
-
-	private boolean isWebLinksEnabled() {
-		return desktopPlatforms().allMatch(p -> p.isWebLinksEnabled());
-	}
-
-	private boolean isFileExtensionsToggleable() {
-		return desktopPlatforms().anyMatch(p -> p.isFileExtensionsToggleable());
-	}
-
-	private boolean isFileExtensionsEnabled() {
-		return desktopPlatforms().allMatch(p -> p.isFileExtensionsEnabled());
-	}
-
-	private Stream<DesktopIntegrationProvider> desktopPlatforms() {
-		return platformService.getTargetPlatforms().stream() //
-			.filter(p -> p instanceof DesktopIntegrationProvider) //
-			.map(p -> (DesktopIntegrationProvider) p);
+		return item.getType() == boolean.class ?
+			(Boolean) getInput(item.getName()) : null;
 	}
 }

@@ -29,6 +29,7 @@
 package org.scijava.desktop;
 
 import org.scijava.log.LogService;
+import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.service.AbstractService;
@@ -42,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Default implementation of {@link DesktopService}.
@@ -50,6 +52,9 @@ import java.util.Map;
  */
 @Plugin(type = Service.class)
 public class DefaultDesktopService extends AbstractService implements DesktopService {
+
+	@Parameter
+	private PlatformService platformService;
 
 	@Parameter(required = false)
 	private LogService log;
@@ -64,6 +69,58 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	/** Cached contents of {@code mime-types.txt}, keyed by extension (no leading dot). */
 	private Map<String, String> mimeDB;
+
+	@Override
+	public void syncDesktopIntegration(final boolean webLinks,
+		final boolean desktopIcon, final boolean fileTypes)
+	{
+		desktopPlatforms().forEach(p -> {
+			// Resolve each feature's desired state: use the passed value
+			// if toggleable, otherwise preserve the current platform state.
+			final boolean webLinks2 = p.isWebLinksToggleable()
+				? webLinks : p.isWebLinksEnabled();
+			final boolean desktopIcon2 = p.isDesktopIconToggleable()
+				? desktopIcon : p.isDesktopIconPresent();
+			final boolean fileTypes2 = p.isFileExtensionsToggleable()
+				? fileTypes : p.isFileExtensionsEnabled();
+			try {
+				p.syncDesktopIntegration(webLinks2, desktopIcon2, fileTypes2);
+			}
+			catch (final IOException e) {
+				if (log != null) log.error("Error performing desktop integration", e);
+			}
+		});
+	}
+
+	@Override
+	public boolean isDesktopIconToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isDesktopIconToggleable());
+	}
+
+	@Override
+	public boolean isDesktopIconPresent() {
+		return desktopPlatforms().allMatch(p -> p.isDesktopIconPresent());
+	}
+
+	@Override
+	public boolean isWebLinksToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isWebLinksToggleable());
+	}
+
+	@Override
+	public boolean isWebLinksEnabled() {
+		return desktopPlatforms().allMatch(p -> p.isWebLinksEnabled());
+	}
+
+	@Override
+	public boolean isFileExtensionsToggleable() {
+		return desktopPlatforms().anyMatch(p -> p.isFileExtensionsToggleable());
+	}
+
+	@Override
+	public boolean isFileExtensionsEnabled() {
+		return desktopPlatforms().allMatch(p -> p.isFileExtensionsEnabled());
+	}
 
 	@Override
 	public void addFileType(final String ext,
@@ -167,5 +224,13 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 			if (log != null) log.error("Failed to load MIME types database", e);
 		}
 		mimeDB = db;
+	}
+
+	// -- Helper methods --
+
+	private Stream<DesktopIntegrationProvider> desktopPlatforms() {
+		return platformService.getTargetPlatforms().stream() //
+			.filter(p -> p instanceof DesktopIntegrationProvider) //
+			.map(p -> (DesktopIntegrationProvider) p);
 	}
 }

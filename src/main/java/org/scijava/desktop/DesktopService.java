@@ -41,6 +41,39 @@ import java.util.Map;
 public interface DesktopService extends SciJavaService {
 
 	/**
+	 * Applies desktop integration settings.
+	 * <p>
+	 * The behavior of each setting is platform-specific;
+	 * not all settings have an effect on every platform.
+	 * </p>
+	 *
+	 * @param webLinks    whether URI scheme handlers should be registered
+	 * @param desktopIcon whether the application launcher entry should be present
+	 * @param fileTypes   whether file-extension associations should be registered
+	 * @throws IOException if any part of the update fails
+	 */
+	void syncDesktopIntegration(boolean webLinks,
+		boolean desktopIcon, boolean fileTypes);
+
+	/** TODO javadoc */
+	boolean isDesktopIconToggleable();
+
+	/** TODO javadoc */
+	boolean isDesktopIconPresent();
+
+	/** TODO javadoc */
+	boolean isWebLinksToggleable();
+
+	/** TODO javadoc */
+	boolean isWebLinksEnabled();
+
+	/** TODO javadoc */
+	boolean isFileExtensionsToggleable();
+
+	/** TODO javadoc */
+	boolean isFileExtensionsEnabled();
+
+	/**
 	 * Adds a single file type.
 	 *
 	 * @param ext      File extension without leading dot (e.g. {@code "png"}).
