@@ -28,12 +28,18 @@
  */
 package org.scijava.desktop;
 
+import org.scijava.event.ContextCreatedEvent;
+import org.scijava.event.EventHandler;
 import org.scijava.log.LogService;
+import org.scijava.object.LazyObjects;
+import org.scijava.object.ObjectService;
 import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
+import org.scijava.prefs.PrefService;
 import org.scijava.service.AbstractService;
 import org.scijava.service.Service;
+import org.scijava.thread.ThreadService;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,9 +62,22 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	@Parameter
 	private PlatformService platformService;
 
+	@Parameter
+	private ObjectService objectService;
+
+	@Parameter
+	private ThreadService threadService;
+
+	@Parameter(required = false)
+	private PrefService prefs;
+
 	@Parameter(required = false)
 	private LogService log;
 
+	/** Cached contents of {@code mime-types.txt}, keyed by extension (no leading dot). */
+	private final Map<String, String> mimeDB = new HashMap<>();
+
+	/** Map of file extension to MIME type. */
 	private final Map<String, String> fileTypes = new HashMap<>();
 
 	/**
@@ -67,8 +86,8 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	 */
 	private final Map<String, String> descriptions = new HashMap<>();
 
-	/** Cached contents of {@code mime-types.txt}, keyed by extension (no leading dot). */
-	private Map<String, String> mimeDB;
+	/** Whether lazy initialization is complete. */
+	private boolean initialized;
 
 	@Override
 	public void syncDesktopIntegration(final boolean webLinks,
@@ -123,76 +142,56 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	}
 
 	@Override
-	public void addFileType(final String ext,
+	public void addFileType(final String extension,
 		final String mimeType, final String description)
 	{
-		if (mimeDB == null) initMimeDB();
+		objectService.addObject(new FileType(extension, mimeType, description));
+	}
 
-		// Resolve the MIME type as needed and if possible.
-		final String resolvedMimeType;
-		if (mimeType == null || mimeType.isEmpty()) {
-			// No MIME type was given -- try to resolve it from the file extension.
-			// If not found, mark it with a wildcard sentinel for resolution
-			// elsewhere, using a default MIME prefix of 'application'.
-			resolvedMimeType = mimeDB.getOrDefault(ext, "application/*");
-		}
-		else if (mimeType.endsWith("/*")) {
-			// A wildcard MIME type was given -- try to resolve it from the file extension.
-			// If not found, leave the wildcard sentinel as is for resolution elsewhere.
-			resolvedMimeType = mimeDB.getOrDefault(ext, mimeType);
-		}
-		else {
-			// Assume an explicit MIME type was given -- use it verbatim.
-			resolvedMimeType = mimeType;
-		}
-
-		// Save the file extension -> MIME type association.
-		fileTypes.put(ext, resolvedMimeType);
-		if (log != null) {
-			log.debug("Registered file extension '" + ext +
-				"' as MIME type '" + resolvedMimeType + "'");
-		}
-
-		// Save the file extension -> description association.
-		if (description == null) return; // No description to register.
-		if (descriptions.containsKey(ext)) {
-			if (log != null) {
-				log.debug("Ignoring description '" + description +
-					"' for file extension '" + ext +
-					"' with existing description '" + descriptions.get(ext) + "'");
-			}
-		}
-		else {
-			descriptions.put(ext, description);
-			if (log != null) {
-				log.debug("Registered description '" + description +
-					"' for file extension '" + ext + "'");
-			}
-		}
+	@Override
+	public void addFileTypes(LazyObjects<FileType> fileTypes) {
+		objectService.getIndex().addLater(fileTypes);
 	}
 
 	@Override
 	public Map<String, String> getFileTypes() {
+		if (fileTypes == null) initFileTypes();
 		return Collections.unmodifiableMap(fileTypes);
 	}
 
 	@Override
 	public String getDescription(final String extension) {
+		if (fileTypes == null) initFileTypes();
 		return descriptions.get(extension);
+	}
+
+	// -- Event handlers --
+
+	@EventHandler
+	public void onEvent(ContextCreatedEvent event) {
+		maybeAutoInstallDesktopIntegrations();
 	}
 
 	// -- Helper methods - lazy initialization --
 
-	/** Initializes {@link #mimeDB} from the built-in {@code mime-types.txt} resource. */
-	private synchronized void initMimeDB() {
-		if (mimeDB != null) return; // already initialized
+	private synchronized void initFileTypes() {
+		if (initialized) return;
+		initMimeDB();
+		for (var fileType : objectService.getObjects(FileType.class)) {
+			resolveFileType(fileType);
+		}
+		initialized = true;
+	}
 
+	/** Initializes {@link #mimeDB} from the built-in {@code mime-types.txt} resource. */
+	private void initMimeDB() {
 		final Map<String, String> db = new HashMap<>();
 		final String resource = "mime-types.txt";
-		try (final InputStream is = getClass().getResourceAsStream(resource);
-		     final BufferedReader reader = new BufferedReader(
-		         new InputStreamReader(is, StandardCharsets.UTF_8)))
-		{
+		try (
+			final InputStream is = getClass().getResourceAsStream(resource);
+			final BufferedReader reader = new BufferedReader(
+				new InputStreamReader(is, StandardCharsets.UTF_8))
+		) {
 			String line;
 			while ((line = reader.readLine()) != null) {
 				if (line.startsWith("#") || line.isBlank()) continue;
@@ -223,7 +222,54 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 		catch (final IOException e) {
 			if (log != null) log.error("Failed to load MIME types database", e);
 		}
-		mimeDB = db;
+	}
+
+	private void resolveFileType(FileType fileType) {
+		String extension = fileType.extension;
+		String mimeType = fileType.mimeType;
+		String description = fileType.description;
+
+		// Resolve the MIME type as needed and if possible.
+		final String resolvedMimeType;
+		if (mimeType == null || mimeType.isEmpty()) {
+			// No MIME type was given -- try to resolve it from the file extension.
+			// If not found, mark it with a wildcard sentinel for resolution
+			// elsewhere, using a default MIME prefix of 'application'.
+			resolvedMimeType = mimeDB.getOrDefault(extension, "application/*");
+		}
+		else if (mimeType.endsWith("/*")) {
+			// A wildcard MIME type was given -- try to resolve it from the file extension.
+			// If not found, leave the wildcard sentinel as is for resolution elsewhere.
+			resolvedMimeType = mimeDB.getOrDefault(extension, mimeType);
+		}
+		else {
+			// Assume an explicit MIME type was given -- use it verbatim.
+			resolvedMimeType = mimeType;
+		}
+
+		// Save the file extension -> MIME type association.
+		fileTypes.put(extension, resolvedMimeType);
+		if (log != null) {
+			log.debug("Registered file extension '" + extension +
+				"' as MIME type '" + resolvedMimeType + "'");
+		}
+
+		// Save the file extension -> description association.
+		if (description == null) return; // No description to register.
+		if (descriptions.containsKey(extension)) {
+			if (log != null) {
+				log.debug("Ignoring description '" + description +
+					"' for file extension '" + extension +
+					"' with existing description '" + descriptions.get(extension) + "'");
+			}
+		}
+		else {
+			descriptions.put(extension, description);
+			if (log != null) {
+				log.debug("Registered description '" + description +
+					"' for file extension '" + extension + "'");
+			}
+		}
 	}
 
 	// -- Helper methods --
@@ -232,5 +278,20 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 		return platformService.getTargetPlatforms().stream() //
 			.filter(p -> p instanceof DesktopIntegrationProvider) //
 			.map(p -> (DesktopIntegrationProvider) p);
+	}
+
+	private void maybeAutoInstallDesktopIntegrations() {
+		// Auto-install desktop integrations on first run.
+
+		// But if we've done it before, don't do it again.
+		final boolean installedOnce = prefs != null &&
+			prefs.getBoolean(DesktopService.class, "installedOnce", false);
+		if (installedOnce) return;
+
+		// We haven't installed the integration before now! So here we go.
+		// We use a dedicated thread to avoid blocking context creation completion;
+		// nothing in the desktop registration needs to be completed synchronously;
+		// we just want to complete the work as soon as reasonably possible.
+		threadService.run(() -> syncDesktopIntegration(true, true, true));
 	}
 }

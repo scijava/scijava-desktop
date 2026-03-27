@@ -28,6 +28,7 @@
  */
 package org.scijava.desktop;
 
+import org.scijava.object.LazyObjects;
 import org.scijava.service.SciJavaService;
 
 import java.util.List;
@@ -136,6 +137,13 @@ public interface DesktopService extends SciJavaService {
 			addFileType(ext, mimeType, description);
 		}
 	}
+
+	/**
+	 * Adds a batch of file types to be coelesced lazily at registration time.
+	 *
+	 * @param fileTypes Lazy callback to be invoked later when file types are needed.
+	 */
+	void addFileTypes(final LazyObjects<FileType> fileTypes);
 
 	/**
 	 * Gets the map of supported file types (extension → MIME type).
