@@ -130,7 +130,7 @@ public interface DesktopService extends SciJavaService {
 	 *                    see {@link #addFileType(String, String, String)}.
 	 */
 	default void addFileTypes(final List<String> extensions,
-							 final String mimeType, final String description)
+		final String mimeType, final String description)
 	{
 		for (final String ext : extensions) {
 			addFileType(ext, mimeType, description);
