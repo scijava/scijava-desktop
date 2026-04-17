@@ -66,4 +66,12 @@ public class FileType {
 		this.mimeType = mimeType;
 		this.description = description;
 	}
+
+	@Override
+	public String toString() {
+		return "FileType" +
+			": extension=" + extension +
+			", mimeType=" + mimeType +
+			", description=" + description;
+	}
 }
