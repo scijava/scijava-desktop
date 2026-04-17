@@ -51,7 +51,6 @@ public interface DesktopService extends SciJavaService {
 	 * @param webLinks    whether URI scheme handlers should be registered
 	 * @param desktopIcon whether the application launcher entry should be present
 	 * @param fileTypes   whether file-extension associations should be registered
-	 * @throws IOException if any part of the update fails
 	 */
 	void syncDesktopIntegration(boolean webLinks,
 		boolean desktopIcon, boolean fileTypes);
