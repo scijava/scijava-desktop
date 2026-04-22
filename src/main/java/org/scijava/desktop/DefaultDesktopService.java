@@ -155,13 +155,13 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	@Override
 	public Map<String, String> getFileTypes() {
-		if (fileTypes == null) initFileTypes();
+		if (!initialized) initFileTypes();
 		return Collections.unmodifiableMap(fileTypes);
 	}
 
 	@Override
 	public String getDescription(final String extension) {
-		if (fileTypes == null) initFileTypes();
+		if (!initialized) initFileTypes();
 		return descriptions.get(extension);
 	}
 
