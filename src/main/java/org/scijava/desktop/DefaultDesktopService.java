@@ -224,9 +224,9 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	}
 
 	private void resolveFileType(FileType fileType) {
-		String extension = fileType.extension;
-		String mimeType = fileType.mimeType;
-		String description = fileType.description;
+		final String extension = fileType.extension;
+		final String mimeType = fileType.mimeType;
+		final String description = fileType.description;
 
 		// Resolve the MIME type as needed and if possible.
 		final String resolvedMimeType;
