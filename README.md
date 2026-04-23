@@ -18,7 +18,7 @@ The scijava-desktop component provides three kinds of desktop integration:
    - Windows: Start Menu shortcuts (planned)
    - macOS: Application bundle support
 
-3. **File Extension Registration** (planned)
+3. **File Extension Registration**
    - Associate file types with your application
    - Platform-specific MIME type handling
 
@@ -56,6 +56,7 @@ Set these properties when launching your application:
 java -Dscijava.app.executable="/path/to/myapp" \
      -Dscijava.app.name="My Application" \
      -Dscijava.app.icon="/path/to/icon.png" \
+     -Dscijava.app.wmclass="myapp-Main" \
      -jar myapp.jar
 ```
 
@@ -125,13 +126,15 @@ Desktop integration state is queried directly from the OS (not saved to preferen
 
 ## System Properties
 
-| Property                   | Description                    | Platforms | Required                                                  |
-|----------------------------|--------------------------------|-----------|-----------------------------------------------------------|
-| `scijava.app.executable`   | Path to application executable | All       | Yes (for URI schemes)                                     |
-| `scijava.app.name`         | Application name               | All       | No (default: "SciJava")                       |
-| `scijava.app.icon`         | Icon path                      | All       | No                                                        |
-| `scijava.app.directory`    | Application directory          | All       | No                                                        |
-| `scijava.app.desktop-file` | Override .desktop file path    | Linux     | No (default: `~/.local/share/applications/<app>.desktop`) |
+| Property                   | Description                         | Platforms | Default                                          |
+|----------------------------|-------------------------------------|-----------|--------------------------------------------------|
+| `scijava.app.executable`   | Path to application executable      | All       | Required for URI schemes and desktop icon        |
+| `scijava.app.name`         | Application display name            | All       | `SciJava Application`                            |
+| `scijava.app.icon`         | Icon path or theme name             | All       | None                                             |
+| `scijava.app.directory`    | Application working directory       | All       | None                                             |
+| `scijava.app.desktop-file` | Override `.desktop` file path       | Linux     | `~/.local/share/applications/<app>.desktop`      |
+| `scijava.app.categories`   | Desktop entry categories            | Linux     | `Science;Education;`                             |
+| `scijava.app.wmclass`      | X11 WM_CLASS for taskbar matching   | Linux     | None (field omitted if unset)                    |
 
 ## User Interface
 
@@ -198,7 +201,7 @@ URI schemes are registered by:
 3. Registering with `xdg-mime default <app>.desktop x-scheme-handler/<scheme>`
 4. Updating the desktop database with `update-desktop-database`
 
-Desktop icons are created by installing the `.desktop` file with appropriate fields (Name, Exec, Icon, Categories).
+Desktop icons are created by installing the `.desktop` file with appropriate fields (`Name`, `Exec`, `Icon`, `Categories`, `TryExec`, `StartupNotify`, and optionally `StartupWMClass`). Set `scijava.app.wmclass` to the X11 WM_CLASS your application's windows carry (e.g. as set via `sun.awt.X11.XToolkit.awtAppClassName`) so GNOME Shell and other compositors can match the running window to the launcher entry for correct taskbar icons and grouping.
 
 ### macOS
 
@@ -218,26 +221,6 @@ HKCU\Software\Classes\myapp
     shell\open\command\
         (Default) = "C:\Path\To\App.exe" "%1"
 ```
-
-## Known Issues
-
-### Hardcoded Elements (Needs Fixes)
-
-1. **Hardcoded "fiji" scheme**: WindowsPlatform:86,102 and LinuxPlatform:112,129 hardcode the "fiji" scheme instead of querying LinkHandler plugins.
-   - Impact: Only works for Fiji application
-   - Fix: See NEXT.md Work Item #1
-
-2. **Hardcoded OS checks**: DefaultLinkService:119-132 directly checks OS name instead of using PlatformService.
-   - Impact: Violates plugin architecture
-   - Fix: See NEXT.md Work Items #2 and #3
-
-### Missing Features
-
-- File extension registration
-- Windows desktop icon (Start Menu shortcut)
-- First launch dialog for opt-in
-
-See [NEXT.md](NEXT.md) for details on planned improvements.
 
 ## Manual Testing
 

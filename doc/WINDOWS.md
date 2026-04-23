@@ -15,7 +15,7 @@ When the application starts:
 1. `DefaultLinkService` initializes and listens for `ContextCreatedEvent`
 2. Collects all URI schemes from registered `LinkHandler` plugins via `getSchemes()`
 3. Reads the executable path from the `scijava.app.executable` system property
-4. Creates a `WindowsSchemeInstaller` (currently hardcoded, should use platform plugin)
+4. Creates a `WindowsSchemeInstaller`
 5. Registers each scheme in the Windows Registry
 
 ### Registry Structure
@@ -105,50 +105,6 @@ set APP_HOME=%~dp0
     -jar "%APP_HOME%\lib\myapp.jar"
 ```
 
-### Creating a LinkHandler
-
-To register custom URI schemes, create a `LinkHandler` plugin:
-
-```java
-package com.example;
-
-import org.scijava.desktop.links.AbstractLinkHandler;
-import org.scijava.desktop.links.LinkHandler;
-import org.scijava.desktop.links.Links;
-import org.scijava.plugin.Plugin;
-
-import java.net.URI;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-
-@Plugin(type = LinkHandler.class)
-public class MyAppLinkHandler extends AbstractLinkHandler {
-
-    @Override
-    public boolean supports(final URI uri) {
-        return "myapp".equals(uri.getScheme());
-    }
-
-    @Override
-    public void handle(final URI uri) {
-        // Parse the URI
-        String operation = Links.operation(uri);
-        Map<String, String> params = Links.query(uri);
-
-        // Your business logic here
-        System.out.println("Operation: " + operation);
-        System.out.println("Parameters: " + params);
-    }
-
-    @Override
-    public List<String> getSchemes() {
-        // This tells DefaultLinkService to register "myapp://" with Windows
-        return Arrays.asList("myapp");
-    }
-}
-```
-
 ### User Experience
 
 1. User installs and launches the application
@@ -207,28 +163,6 @@ mvn test -Dtest=WindowsSchemeInstallerTest
 
 Tests automatically skip on non-Windows platforms using JUnit's `Assume.assumeTrue()`.
 
-## Known Issues
-
-### Hardcoded Scheme Name
-
-**Issue**: `WindowsPlatform` (lines 86, 102) currently hardcodes the "fiji" scheme instead of querying registered `LinkHandler` plugins.
-
-**Impact**: Only works for Fiji; breaks for other applications.
-
-**Workaround**: None; requires code fix.
-
-**Fix**: See NEXT.md Work Item #1 for the solution.
-
-### Hardcoded OS Checks
-
-**Issue**: `DefaultLinkService.createInstaller()` (lines 119-132) hardcodes OS name checks instead of using `PlatformService`.
-
-**Impact**: Violates plugin architecture.
-
-**Workaround**: None; requires code fix.
-
-**Fix**: See NEXT.md Work Items #2 and #3 for the solution.
-
 ## Platform Comparison
 
 ### Windows vs. Linux vs. macOS
@@ -239,7 +173,7 @@ Tests automatically skip on non-Windows platforms using JUnit's `Assume.assumeTr
 | **Admin Rights Required** | No (HKCU) | No (user .desktop file) | N/A (bundle) |
 | **Toggleable at Runtime** | Yes | Yes | No (read-only) |
 | **Desktop Icon** | Planned (Start Menu) | Yes (.desktop file) | No (user pins to Dock) |
-| **File Extensions** | Planned (Registry) | Planned (.desktop MIME types) | Build-time (Info.plist) |
+| **File Extensions** | Yes (Registry) | Yes (.desktop MIME types) | Build-time (Info.plist) |
 
 ### Why Runtime Registration on Windows?
 
@@ -252,34 +186,18 @@ Unlike macOS (where the `.app` bundle is code-signed and immutable), Windows all
 - Only writes to `HKEY_CURRENT_USER` (per-user settings)
 - Does not modify system-wide settings in `HKEY_LOCAL_MACHINE`
 - Only registers URI schemes declared by `LinkHandler` plugins
-- Does not expose arbitrary command execution
-
-### Command-Line Injection
-
-The `%1` parameter in the registry command is properly quoted:
-```
-"C:\Path\To\App.exe" "%1"
-```
-
-This prevents command-line injection attacks via malicious URIs.
+- Uses proper quoting to avoid exposing arbitrary command execution
 
 ## Future Enhancements
 
 1. **Start Menu Shortcut**: Implement desktop icon creation
-2. **File Extension Registration**: Register file types in the registry
-3. **Scheme Validation**: Validate scheme names against RFC 3986
-4. **User Prompts**: Optional confirmation before registering schemes
-5. **Uninstallation**: Automatic cleanup on application uninstall
-6. **Icon Support**: Associate icons with schemes and file types
+2. **Scheme Validation**: Validate scheme names against RFC 3986
+3. **User Prompts**: Optional confirmation before registering schemes
+4. **Uninstallation**: Automatic cleanup on application uninstall
+5. **Icon Support**: Associate icons with file type registrations
 
 ## Resources
 
 - [Microsoft URI Scheme Documentation](https://docs.microsoft.com/en-us/previous-versions/windows/internet-explorer/ie-developer/platform-apis/aa767914(v=vs.85))
 - [Windows Registry Reference](https://docs.microsoft.com/en-us/windows/win32/sysinfo/registry)
 - [RFC 3986 - URI Generic Syntax](https://www.rfc-editor.org/rfc/rfc3986)
-
-## See Also
-
-- [NEXT.md](../NEXT.md) - Planned improvements
-- [spec/DESKTOP_INTEGRATION_PLAN.md](../spec/DESKTOP_INTEGRATION_PLAN.md) - Architecture overview
-- [spec/IMPLEMENTATION_SUMMARY.md](../spec/IMPLEMENTATION_SUMMARY.md) - Implementation details
