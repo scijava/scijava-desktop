@@ -56,6 +56,11 @@
 			<properties><id>dscho</id></properties>
 		</contributor>
 		<contributor>
+			<name>Yili Zhao</name>
+			<url>https://imagej.net/people/panovr</url>
+			<properties><id>panovr</id></properties>
+		</contributor>
+		<contributor>
 			<name>Marwan Zouinkhi</name>
 			<url>https://imagej.net/people/mzouink</url>
 			<roles><role>founder</role></roles>
