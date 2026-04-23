@@ -243,7 +243,7 @@ public class LinuxPlatform extends AbstractPlatform
 		df.save();
 
 		if (log != null) {
-			log.info("Synced desktop file: webLinks=" + webLinks +
+			log.debug("Synced desktop file: webLinks=" + webLinks +
 				", desktopIcon=" + desktopIcon + ", fileTypes=" + fileTypes);
 		}
 	}
@@ -320,9 +320,7 @@ public class LinuxPlatform extends AbstractPlatform
 
 		df.save();
 
-		if (log != null) {
-			log.info("Created desktop file: " + desktopFilePath);
-		}
+		if (log != null) log.info("Wrote desktop file: " + desktopFilePath);
 	}
 
 	private Path getDesktopFilePath() {
