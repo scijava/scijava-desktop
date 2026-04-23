@@ -337,6 +337,30 @@ public class DesktopFile {
 		set("Categories", categories);
 	}
 
+	public String getTryExec() {
+		return get("TryExec");
+	}
+
+	public void setTryExec(final String tryExec) {
+		set("TryExec", tryExec);
+	}
+
+	public boolean getStartupNotify() {
+		return "true".equalsIgnoreCase(get("StartupNotify"));
+	}
+
+	public void setStartupNotify(final boolean startupNotify) {
+		set("StartupNotify", startupNotify ? "true" : "false");
+	}
+
+	public String getStartupWMClass() {
+		return get("StartupWMClass");
+	}
+
+	public void setStartupWMClass(final String startupWMClass) {
+		set("StartupWMClass", startupWMClass);
+	}
+
 	// -- Helper methods --
 
 	/** Returns a semicolon-separated string with entries sorted. */

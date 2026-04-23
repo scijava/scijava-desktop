@@ -206,7 +206,8 @@ public class LinuxPlatform extends AbstractPlatform
 
 		final DesktopFile df = new DesktopFile(path);
 
-		// Exec is always written — it identifies which binary handles opens/links.
+		// TryExec and Exec are always written — they identify which binary handles opens/links.
+		df.setTryExec(appExec);
 		df.setExec(appExec + " %U");
 
 		if (desktopIcon) {
@@ -216,8 +217,13 @@ public class LinuxPlatform extends AbstractPlatform
 			df.setVersion("1.0");
 			df.setName(appName);
 			df.setGenericName(appName);
-			df.setCategories("Science;Education;");
+			final String appCategories =
+				System.getProperty("scijava.app.categories", "Science;Education;");
+			df.setCategories(appCategories);
 			df.setTerminal(false);
+			df.setStartupNotify(true);
+			final String appWMClass = System.getProperty("sun.awt.wmclass");
+			if (appWMClass != null) df.setStartupWMClass(appWMClass);
 			final String appIcon = System.getProperty("scijava.app.icon");
 			if (appIcon != null) df.setIcon(appIcon);
 			final String appDir = System.getProperty("scijava.app.directory");
@@ -303,9 +309,15 @@ public class LinuxPlatform extends AbstractPlatform
 		df.setVersion("1.0");
 		df.setName(appName);
 		df.setGenericName(appName);
+		df.setTryExec(appExec);
 		df.setExec(appExec + " %U");
 		df.setTerminal(false);
-		df.setCategories("Science;Education;");
+		final String appCategories = System.getProperty("scijava.app.categories",
+			"Science;Education;");
+		df.setCategories(appCategories);
+		df.setStartupNotify(true);
+		final String appWMClass = System.getProperty("scijava.app.wmclass");
+		if (appWMClass != null) df.setStartupWMClass(appWMClass);
 
 		if (appIcon != null) {
 			df.setIcon(appIcon);
