@@ -42,7 +42,10 @@ import org.scijava.platform.PlatformService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 
+import java.awt.GraphicsEnvironment;
+import java.awt.Toolkit;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -100,6 +103,8 @@ public class LinuxPlatform extends AbstractPlatform
 	@Override
 	public void configure(final PlatformService service) {
 		super.configure(service);
+
+		applyWMClass();
 
 		// Create or update .desktop file for desktop integration.
 		try {
@@ -222,7 +227,7 @@ public class LinuxPlatform extends AbstractPlatform
 			df.setCategories(appCategories);
 			df.setTerminal(false);
 			df.setStartupNotify(true);
-			final String appWMClass = System.getProperty("sun.awt.wmclass");
+			final String appWMClass = System.getProperty("scijava.app.wmclass");
 			if (appWMClass != null) df.setStartupWMClass(appWMClass);
 			final String appIcon = System.getProperty("scijava.app.icon");
 			if (appIcon != null) df.setIcon(appIcon);
@@ -360,6 +365,30 @@ public class LinuxPlatform extends AbstractPlatform
 	 */
 	private String sanitizeFileName(final String name) {
 		return name.replaceAll("[^a-zA-Z0-9._-]", "-").toLowerCase();
+	}
+
+	/**
+	 * Sets the AWT app class name via reflection so the running application's
+	 * windows carry the WM_CLASS specified by {@code scijava.app.wmclass}.
+	 * This must be called before any AWT windows are created.
+	 */
+	private void applyWMClass() {
+		final String appWMClass = System.getProperty("scijava.app.wmclass");
+		if (appWMClass == null) return;
+		if (GraphicsEnvironment.isHeadless()) return;
+		try {
+			final Toolkit toolkit = Toolkit.getDefaultToolkit();
+			if (toolkit == null) return;
+			final Class<?> clazz = toolkit.getClass();
+			if (!"sun.awt.X11.XToolkit".equals(clazz.getName())) return;
+			final Field field = clazz.getDeclaredField("awtAppClassName");
+			field.setAccessible(true);
+			field.set(toolkit, appWMClass);
+			if (log != null) log.debug("Set AWT app class name: " + appWMClass);
+		}
+		catch (final Throwable t) {
+			if (log != null) log.debug("Could not set AWT app class name", t);
+		}
 	}
 
 	// -- Helper methods --
