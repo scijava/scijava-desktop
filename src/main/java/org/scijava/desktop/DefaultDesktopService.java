@@ -185,7 +185,6 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	/** Initializes {@link #mimeDB} from the built-in {@code mime-types.txt} resource. */
 	private void initMimeDB() {
-		final Map<String, String> db = new HashMap<>();
 		final String resource = "mime-types.txt";
 		try (
 			final InputStream is = getClass().getResourceAsStream(resource);
@@ -213,7 +212,7 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 					mime = rest.substring(0, pipe2).trim();
 					description = rest.substring(pipe2 + 1).trim();
 				}
-				db.putIfAbsent(ext, mime);
+				mimeDB.putIfAbsent(ext, mime);
 				if (description != null && !description.isEmpty()) {
 					descriptions.put(ext, description);
 				}
