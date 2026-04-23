@@ -11,7 +11,7 @@
 
 	<groupId>org.scijava</groupId>
 	<artifactId>scijava-desktop</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.1-SNAPSHOT</version>
 
 	<name>SciJava Desktop</name>
 	<description>Desktop integration for SciJava.</description>
