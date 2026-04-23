@@ -202,10 +202,7 @@ public class LinuxPlatform extends AbstractPlatform
 
 		// An executable is required for any feature to work.
 		final String appExec = System.getProperty("scijava.app.executable");
-		if (appExec == null) {
-			throw new IOException(
-				"No executable path set (scijava.app.executable property)");
-		}
+		if (appExec == null) return;
 
 		final DesktopFile df = new DesktopFile(path);
 

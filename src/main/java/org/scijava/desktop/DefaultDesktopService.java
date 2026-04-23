@@ -288,6 +288,9 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 			prefs.getBoolean(DesktopService.class, "installedOnce", false);
 		if (installedOnce) return;
 
+		// Without a launcher binary, there is nothing to register.
+		if (System.getProperty("scijava.app.executable") == null) return;
+
 		// We haven't installed the integration before now! So here we go.
 		// We use a dedicated thread to avoid blocking context creation completion;
 		// nothing in the desktop registration needs to be completed synchronously;

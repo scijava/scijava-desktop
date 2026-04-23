@@ -111,9 +111,7 @@ public class WindowsPlatform extends AbstractPlatform
 		final WindowsSchemeInstaller installer = new WindowsSchemeInstaller(log);
 		final String executablePath = System.getProperty("scijava.app.executable");
 
-		if (executablePath == null) {
-			throw new IOException("No executable path set (scijava.app.executable property)");
-		}
+		if (executablePath == null) return;
 
 		final Set<String> schemes = schemes();
 		for (final String scheme : schemes) {
@@ -183,9 +181,7 @@ public class WindowsPlatform extends AbstractPlatform
 	@Override
 	public void setFileExtensionsEnabled(final boolean enable) throws IOException {
 		final String executablePath = System.getProperty("scijava.app.executable");
-		if (executablePath == null) {
-			throw new IOException("No executable path set (scijava.app.executable property)");
-		}
+		if (executablePath == null) return;
 
 		final String executableName = getExecutableName();
 		if (executableName == null) {
