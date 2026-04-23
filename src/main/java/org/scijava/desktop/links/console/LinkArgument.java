@@ -57,7 +57,7 @@ public class LinkArgument extends AbstractConsoleArgument {
 	public void handle(final LinkedList<String> args) {
 		if (linkService == null) return; // no service to handle links
 		if (args.isEmpty()) return; // no argument to check
-		final URI uri = link(args.getFirst());
+		final URI uri = link(args.removeFirst());
 		if (uri == null) return; // not a URI
 		linkService.handle(uri);
 	}
