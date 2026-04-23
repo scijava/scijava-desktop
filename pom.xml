@@ -11,7 +11,7 @@
 
 	<groupId>org.scijava</groupId>
 	<artifactId>scijava-desktop</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0</version>
 
 	<name>SciJava Desktop</name>
 	<description>Desktop integration for SciJava.</description>
@@ -85,7 +85,7 @@
 	<scm>
 		<connection>scm:git:https://github.com/scijava/scijava-desktop</connection>
 		<developerConnection>scm:git:git@github.com:scijava/scijava-desktop</developerConnection>
-		<tag>HEAD</tag>
+		<tag>scijava-desktop-1.0.0</tag>
 		<url>https://github.com/scijava/scijava-desktop</url>
 	</scm>
 
