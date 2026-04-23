@@ -294,6 +294,9 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 		// We use a dedicated thread to avoid blocking context creation completion;
 		// nothing in the desktop registration needs to be completed synchronously;
 		// we just want to complete the work as soon as reasonably possible.
-		threadService.run(() -> syncDesktopIntegration(true, true, true));
+		threadService.run(() -> {
+			syncDesktopIntegration(true, true, true);
+			if (prefs != null) prefs.put(DesktopService.class, "installedOnce", true);
+		});
 	}
 }
