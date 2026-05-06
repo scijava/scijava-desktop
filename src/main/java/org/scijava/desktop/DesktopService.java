@@ -41,6 +41,10 @@ import java.util.Map;
  */
 public interface DesktopService extends SciJavaService {
 
+	default boolean isSingleInstanceEnabled() {
+		return Boolean.getBoolean("scijava.app.single-instance");
+	}
+
 	/**
 	 * Applies desktop integration settings.
 	 * <p>

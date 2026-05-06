@@ -6,7 +6,7 @@ Unified desktop integration for SciJava applications.
 
 ## Features
 
-The scijava-desktop component provides three kinds of desktop integration:
+The scijava-desktop component provides four kinds of desktop integration:
 
 1. **URI Link Scheme Registration & Handling**
    - Register custom URI schemes (e.g., `myapp://`) with the operating system
@@ -21,6 +21,17 @@ The scijava-desktop component provides three kinds of desktop integration:
 3. **File Extension Registration**
    - Associate file types with your application
    - Platform-specific MIME type handling
+
+4. **Single-Instance Enforcement**
+   - Prevents multiple application instances when the OS re-launches the binary
+   - Uses a TCP socket listener via the `SingleInstance` feature of the
+     [SciJava App Launcher](https://github.com/scijava/app-launcher) to let a
+     secondary transient instance hand off its arguments to the already-running
+     primary instance and exit immediately -- before the splash screen appears
+   - Enabled via the `scijava.app.single-instance` system property
+   - Useful in conjunction with file type associations and URI scheme
+     registration, both of which trigger the OS to launch another copy of the
+     application binary when a registered file type or link is clicked
 
 ## Platform Support
 

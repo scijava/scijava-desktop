@@ -104,10 +104,16 @@
 		<scijava.jvm.version>11</scijava.jvm.version>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.copyrightOwners>SciJava developers.</license.copyrightOwners>
+		<app-launcher.version>2.4.0-SNAPSHOT</app-launcher.version> <!-- TEMP -->
+		<enforcer.skip>true</enforcer.skip> <!-- TEMP -->
 	</properties>
 
 	<dependencies>
 		<!-- SciJava dependencies -->
+		<dependency>
+			<groupId>org.scijava</groupId>
+			<artifactId>app-launcher</artifactId>
+		</dependency>
 		<dependency>
 			<groupId>org.scijava</groupId>
 			<artifactId>scijava-common</artifactId>

@@ -28,9 +28,12 @@
  */
 package org.scijava.desktop;
 
+import org.scijava.console.ConsoleService;
 import org.scijava.event.ContextCreatedEvent;
 import org.scijava.event.EventHandler;
+import org.scijava.launcher.SingleInstance;
 import org.scijava.log.LogService;
+import org.scijava.main.MainService;
 import org.scijava.object.LazyObjects;
 import org.scijava.object.ObjectService;
 import org.scijava.platform.PlatformService;
@@ -39,6 +42,7 @@ import org.scijava.plugin.Plugin;
 import org.scijava.prefs.PrefService;
 import org.scijava.service.AbstractService;
 import org.scijava.service.Service;
+import org.scijava.startup.StartupService;
 import org.scijava.thread.ThreadService;
 
 import java.io.BufferedReader;
@@ -67,6 +71,15 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 
 	@Parameter
 	private ThreadService threadService;
+
+	@Parameter
+	private ConsoleService consoleService;
+
+	@Parameter
+	private MainService mainService;
+
+	@Parameter
+	private StartupService startupService;
 
 	@Parameter(required = false)
 	private PrefService prefs;
@@ -163,6 +176,15 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 	public String getDescription(final String extension) {
 		if (!initialized) initFileTypes();
 		return descriptions.get(extension);
+	}
+
+	// -- Service methods --
+
+	@Override
+	public void initialize() {
+		if (isSingleInstanceEnabled()) {
+			startupService.addOperation(() -> SingleInstance.listen(0, this::receiveArgs));
+		}
 	}
 
 	// -- Event handlers --
@@ -277,6 +299,16 @@ public class DefaultDesktopService extends AbstractService implements DesktopSer
 		return platformService.getTargetPlatforms().stream() //
 			.filter(p -> p instanceof DesktopIntegrationProvider) //
 			.map(p -> (DesktopIntegrationProvider) p);
+	}
+
+	/**
+	 * Receives arguments from a secondary transient application instance
+	 * and handles them via standard SciJava Common service methods.
+	 */
+	private void receiveArgs(String[] args) {
+		consoleService.processArgs(args);
+		mainService.execMains();
+		startupService.executeOperations();
 	}
 
 	private void maybeAutoInstallDesktopIntegrations() {
