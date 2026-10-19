@@ -29,6 +29,7 @@
 package org.scijava.desktop.links;
 
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,6 +47,8 @@ import org.scijava.plugin.AbstractHandlerService;
 import org.scijava.plugin.Parameter;
 import org.scijava.plugin.Plugin;
 import org.scijava.service.Service;
+import org.scijava.ui.DialogPrompt;
+import org.scijava.ui.UIService;
 
 /**
  * Default implementation of {@link LinkService}.
@@ -61,6 +64,12 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 	@Parameter(required = false)
 	private PlatformService platformService;
 
+	@Parameter(required = false)
+	private UIService uiService;
+
+	/** Maximum number of characters of an unsupported URI shown to the user. */
+	private static final int MAX_URI_DISPLAY_LENGTH = 120;
+
 	@EventHandler
 	private void onEvent(final ContextCreatedEvent evt) {
 		// Register URI handler with the desktop system, if possible.
@@ -73,6 +82,26 @@ public class DefaultLinkService extends AbstractHandlerService<URI, LinkHandler>
 
 		// Register URI schemes with the operating system.
 		installSchemes();
+	}
+
+	@Override
+	public void handleUnsupported(final URI uri) {
+		final String appName = System.getProperty("scijava.app.name", "This application");
+		final String appDir = System.getProperty("scijava.app.directory");
+		String shown = String.valueOf(uri);
+		if (shown.length() > MAX_URI_DISPLAY_LENGTH) {
+			shown = shown.substring(0, MAX_URI_DISPLAY_LENGTH) + "...";
+		}
+		final String msg = appName + " cannot handle this link:\n\n" + shown +
+			"\n\nThe component that supports it may be missing or outdated. " +
+			"Please make sure it is installed and up to date." +
+			(appDir == null ? "" : "\n\nIf several installations exist in your system, " +
+				"the one that received this link may not include the component it " +
+				"needs. This link has been opened by:\n" + appDir);
+		if (log != null) log.warn(msg.replace("\n\n", " ").replace("\n", " "));
+		if (uiService != null && !GraphicsEnvironment.isHeadless()) {
+			uiService.showDialog(msg, "Unsupported Link", DialogPrompt.MessageType.ERROR_MESSAGE);
+		}
 	}
 
 	/**

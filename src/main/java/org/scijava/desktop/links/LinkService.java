@@ -54,12 +54,28 @@ public interface LinkService extends HandlerService<URI, LinkHandler>,
 			.findFirst();
 		if (match.isEmpty()) {
 			// No appropriate link handler plugin was found.
-			final Logger log = log();
-			if (log != null) log.debug("No handler for URI: " + uri);
+			handleUnsupported(uri);
 			return; // no handler for this URI
 		}
 		// Handle the URI using the matching link handler.
 		match.get().handle(uri);
+	}
+
+	/**
+	 * Called by {@link #handle(URI)} when no {@link LinkHandler} supports the
+	 * given URI. This typically happens when a link is opened by an installation
+	 * that lacks (or has an outdated version of) the component that implements
+	 * it, since the operating system routes links by scheme only.
+	 * <p>
+	 * The default implementation only logs a debug message. Implementations
+	 * with access to a user interface should override it to notify the user.
+	 * </p>
+	 *
+	 * @param uri The URI that no handler supports.
+	 */
+	default void handleUnsupported(final URI uri) {
+		final Logger log = log();
+		if (log != null) log.debug("No handler for URI: " + uri);
 	}
 
 	default Set<String> getSchemes() {
